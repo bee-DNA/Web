@@ -1,0 +1,49 @@
+services:
+  world-map-app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: world-data-visualization
+    ports:
+      - "8050:8050"
+    environment:
+      - DASH_DEBUG=False
+      - FLASK_ENV=production
+    volumes:
+      - ./data:/app/data:ro  # 唯讀掛載資料目錄
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8050/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 進階版應用程式（可選）
+  advanced-world-map-app:
+    build: 
+      context: .
+      dockerfile: Dockerfile.advanced
+    container_name: advanced-world-data-visualization
+    ports:
+      - "8051:8051"
+    environment:
+      - DASH_DEBUG=False
+      - FLASK_ENV=production
+    volumes:
+      - ./data:/app/data:ro
+    restart: unless-stopped
+    networks:
+      - app-network
+    profiles:
+      - advanced  # 使用 profile 來選擇性啟動
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  data-volume:
+    driver: local

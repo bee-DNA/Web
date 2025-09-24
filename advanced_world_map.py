@@ -475,12 +475,23 @@ def create_stats_cards(df, metric):
 
 
 if __name__ == "__main__":
+    import os
+
+    # 從環境變數獲取配置
+    debug_mode = os.getenv("DASH_DEBUG", "True").lower() == "true"
+    port = int(os.getenv("PORT", 8051))
+    host = os.getenv("HOST", "0.0.0.0")  # Docker 需要綁定到 0.0.0.0
+
     print("🚀 啟動進階世界地圖應用...")
-    print("📍 請在瀏覽器中開啟: http://127.0.0.1:8051/")
+    print(
+        f"📍 請在瀏覽器中開啟: http://{host if host != '0.0.0.0' else 'localhost'}:{port}/"
+    )
     print("✨ 功能包含：")
     print("   - 🌍 互動式世界地圖")
     print("   - 📊 多種資料指標")
     print("   - 🎨 可客製化色彩")
     print("   - 📋 可排序和篩選的資料表")
     print("   - 📈 即時統計資訊")
-    app.run(debug=True, port=8051)
+    print(f"🔧 Debug 模式: {'開啟' if debug_mode else '關閉'}")
+
+    app.run(debug=debug_mode, host=host, port=port)

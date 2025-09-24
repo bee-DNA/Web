@@ -197,6 +197,17 @@ def update_world_map(selected_data, color_scale):
 
 
 if __name__ == "__main__":
+    import os
+
+    # 從環境變數獲取配置
+    debug_mode = os.getenv("DASH_DEBUG", "True").lower() == "true"
+    port = int(os.getenv("PORT", 8050))
+    host = os.getenv("HOST", "0.0.0.0")  # Docker 需要綁定到 0.0.0.0
+
     print("🚀 啟動 Dash 應用...")
-    print("📍 請在瀏覽器中開啟: http://127.0.0.1:8050/")
-    app.run(debug=True, port=8050)
+    print(
+        f"📍 請在瀏覽器中開啟: http://{host if host != '0.0.0.0' else 'localhost'}:{port}/"
+    )
+    print(f"🔧 Debug 模式: {'開啟' if debug_mode else '關閉'}")
+
+    app.run(debug=debug_mode, host=host, port=port)

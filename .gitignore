@@ -91,3 +91,7 @@ Thumbs.db
 *.xlsx
 *.json
 !world_data_sample.csv
+
+# Docker 相關
+.env
+docker-compose.override.yml
