@@ -1,0 +1,33 @@
+# 優化版 Dockerfile - 快速建立
+FROM python:3.11-slim
+
+# 設定工作目錄
+WORKDIR /app
+
+# 設定環境變數
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    DASH_DEBUG=False
+
+# 複製優化版需求檔案
+COPY requirements-optimized.txt requirements.txt
+
+# 安裝 Python 依賴 (快速版本)
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# 複製應用程式代碼
+COPY world_map_app.py .
+COPY advanced_world_map.py .
+COPY data_processor.py .
+
+# 建立非 root 使用者
+RUN adduser --disabled-password --gecos '' appuser && \
+    chown -R appuser:appuser /app
+USER appuser
+
+# 暴露端口
+EXPOSE 8050
+
+# 啟動應用程式
+CMD ["python", "world_map_app.py"]

@@ -1,0 +1,15 @@
+# 優化版 requirements.txt - 快速安裝
+# 核心框架
+dash>=3.0.0
+plotly>=5.15.0
+pandas>=2.0.0
+
+# 基礎依賴
+numpy>=1.24.0
+flask>=3.0.0
+
+# 介面美化
+dash-bootstrap-components>=1.5.0
+
+# 工具
+requests>=2.30.0
