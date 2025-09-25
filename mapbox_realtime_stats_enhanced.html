@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌍 實時統計增強版 Mapbox 地圖</title>
+
+    <!-- Mapbox GL JS -->
+    <script src='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css' rel='stylesheet' />
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 350px;
+            background: white;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .panel {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .panel h3 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .stats-panel {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-left: 4px solid #28a745;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-item:hover {
+            background-color: rgba(40, 167, 69, 0.05);
+            transform: translateX(2px);
+        }
+
+        .stat-label {
+            font-weight: 500;
+            color: #495057;
+            font-size: 0.9rem;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: #28a745;
+            font-size: 0.95rem;
+            background: rgba(40, 167, 69, 0.1);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            min-width: 80px;
+            text-align: right;
+            transition: all 0.2s ease;
+            font-family: 'Courier New', monospace;
+        }
+
+        .stat-value.updating {
+            animation: pulse 0.6s ease-in-out;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                background-color: rgba(40, 167, 69, 0.1);
+            }
+
+            50% {
+                transform: scale(1.02);
+                background-color: rgba(40, 167, 69, 0.2);
+            }
+
+            100% {
+                transform: scale(1);
+                background-color: rgba(40, 167, 69, 0.1);
+            }
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .control-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #555;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        select,
+        button,
+        input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        select:focus,
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .update-frequency {
+            background: #e8f5e8;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .update-frequency label {
+            font-size: 0.8rem;
+            color: #28a745;
+            font-weight: 600;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-active {
+            background: #28a745;
+            animation: blink 1.5s infinite;
+        }
+
+        .status-inactive {
+            background: #dc3545;
+        }
+
+        @keyframes blink {
+
+            0%,
+            50% {
+                opacity: 1;
+            }
+
+            51%,
+            100% {
+                opacity: 0.3;
+            }
+        }
+
+        .performance-stats {
+            font-size: 0.75rem;
+            color: #6c757d;
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background: #f1f3f4;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- 標題 -->
+        <div class="header">
+            <h1>🌍 實時統計增強版 Mapbox 地圖系統</h1>
+            <p>即時更新地圖統計資訊 - 支援高頻率實時監控</p>
+        </div>
+
+        <div class="main-content">
+            <!-- 側邊欄 -->
+            <div class="sidebar">
+                <!-- 即時統計面板 -->
+                <div class="panel stats-panel">
+                    <h3>📈 實時地圖統計</h3>
+
+                    <div class="stat-item">
+                        <span class="stat-label">
+                            <span class="status-indicator status-active" id="statusIndicator"></span>
+                            更新狀態
+                        </span>
+                        <span class="stat-value" id="updateStatus">運行中</span>
+                    </div>
+
+                    <div class="stat-item">
+                        <span class="stat-label">當前縮放級別</span>
+                        <span class="stat-value" id="currentZoom">載入中...</span>
+                    </div>
+
+                    <div class="stat-item">
+                        <span class="stat-label">中心座標</span>
+                        <span class="stat-value" id="centerCoords">載入中...</span>
+                    </div>
+
+                    <div class="stat-item">
+                        <span class="stat-label">載入的數據點</span>
+                        <span class="stat-value" id="dataPoints">0</span>
+                    </div>
+
+                    <div class="stat-item">
+                        <span class="stat-label">地圖樣式</span>
+                        <span class="stat-value" id="currentStyle">載入中...</span>
+                    </div>
+
+                    <div class="stat-item">
+                        <span class="stat-label">標籤語言</span>
+                        <span class="stat-value" id="currentLabelLanguage">中文</span>
+                    </div>
+
+                    <div class="stat-item">
+                        <span class="stat-label">最後更新時間</span>
+                        <span class="stat-value" id="lastUpdateTime">--:--:--</span>
+                    </div>
+
+                    <div class="performance-stats">
+                        <div>📊 性能指標:</div>
+                        <div>更新頻率: <span id="updateFrequency">0</span> 次/秒</div>
+                        <div>總更新次數: <span id="totalUpdates">0</span></div>
+                        <div>平均響應時間: <span id="avgResponseTime">0</span>ms</div>
+                    </div>
+                </div>
+
+                <!-- 控制面板 -->
+                <div class="panel">
+                    <h3>🎛️ 地圖控制</h3>
+
+                    <div class="control-group">
+                        <label for="mapStyle">地圖樣式:</label>
+                        <select id="mapStyle">
+                            <option value="osm">OpenStreetMap</option>
+                            <option value="osm-dark">OpenStreetMap 深色</option>
+                            <option value="carto-positron">CartoDB 明亮版</option>
+                            <option value="carto-darkmatter">CartoDB 深色版</option>
+                        </select>
+                    </div>
+
+                    <div class="update-frequency">
+                        <label for="updateInterval">更新頻率設定:</label>
+                        <select id="updateInterval">
+                            <option value="50">超高頻 (50ms)</option>
+                            <option value="100" selected>高頻 (100ms)</option>
+                            <option value="250">中頻 (250ms)</option>
+                            <option value="500">標準 (500ms)</option>
+                            <option value="1000">低頻 (1秒)</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <button onclick="resetToTaiwan()">🇹🇼 回到台灣</button>
+                    </div>
+
+                    <div class="control-group">
+                        <button onclick="generateRandomData()">🎲 生成隨機數據</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 地圖容器 -->
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全域變數
+        let map;
+        let currentCityGeoJSON = null;
+        let updateIntervalId = null;
+        let statsUpdateScheduled = false;
+        let updateInterval = 100; // 預設 100ms
+
+        // 統計追蹤
+        let totalUpdates = 0;
+        let lastUpdateTimes = [];
+        let lastPerformanceUpdate = Date.now();
+
+        // 地圖樣式配置
+        const MAP_STYLES = {
+            'osm': {
+                version: 8,
+                sources: {
+                    'osm': {
+                        type: 'raster',
+                        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                        tileSize: 256,
+                        attribution: '© OpenStreetMap contributors'
+                    }
+                },
+                layers: [{
+                    id: 'osm',
+                    type: 'raster',
+                    source: 'osm'
+                }]
+            },
+            'osm-dark': {
+                version: 8,
+                sources: {
+                    'osm-dark': {
+                        type: 'raster',
+                        tiles: ['https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png'],
+                        tileSize: 256,
+                        attribution: '© OpenStreetMap contributors, © CartoDB'
+                    }
+                },
+                layers: [{
+                    id: 'osm-dark',
+                    type: 'raster',
+                    source: 'osm-dark'
+                }]
+            },
+            'carto-positron': {
+                version: 8,
+                sources: {
+                    'carto-positron': {
+                        type: 'raster',
+                        tiles: ['https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png'],
+                        tileSize: 256,
+                        attribution: '© OpenStreetMap contributors, © CartoDB'
+                    }
+                },
+                layers: [{
+                    id: 'carto-positron',
+                    type: 'raster',
+                    source: 'carto-positron'
+                }]
+            },
+            'carto-darkmatter': {
+                version: 8,
+                sources: {
+                    'carto-darkmatter': {
+                        type: 'raster',
+                        tiles: ['https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png'],
+                        tileSize: 256,
+                        attribution: '© OpenStreetMap contributors, © CartoDB'
+                    }
+                },
+                layers: [{
+                    id: 'carto-darkmatter',
+                    type: 'raster',
+                    source: 'carto-darkmatter'
+                }]
+            }
+        };
+
+        // 初始化地圖
+        function initializeMap() {
+            try {
+                map = new mapboxgl.Map({
+                    container: 'map',
+                    style: MAP_STYLES['osm'],
+                    center: [121.5654, 25.0330], // 台北
+                    zoom: 10,
+                    pitch: 0,
+                    bearing: 0
+                });
+
+                map.on('load', () => {
+                    console.log('✅ 地圖載入完成');
+
+                    // 立即開始實時統計更新
+                    startRealtimeStats();
+
+                    // 載入初始數據
+                    loadInitialData();
+
+                    // 綁定控制事件
+                    bindControlEvents();
+
+                    // 立即更新一次統計
+                    updateMapStats();
+                });
+
+                map.on('error', (e) => {
+                    console.error('❌ 地圖載入錯誤:', e);
+                    updateStatus('載入錯誤', false);
+                });
+
+            } catch (error) {
+                console.error('❌ 地圖初始化失敗:', error);
+                updateStatus('初始化失敗', false);
+            }
+        }
+
+        // 開始實時統計更新
+        function startRealtimeStats() {
+            // 清除現有的更新器
+            if (updateIntervalId) {
+                clearInterval(updateIntervalId);
+            }
+
+            // 設定新的更新器
+            updateIntervalId = setInterval(() => {
+                if (map && !document.hidden) {
+                    scheduleStatsUpdate();
+                }
+            }, updateInterval);
+
+            // 綁定地圖事件（高頻率更新）
+            const realtimeEvents = ['move', 'zoom', 'rotate', 'pitch'];
+            realtimeEvents.forEach(eventName => {
+                map.off(eventName, scheduleStatsUpdate);
+                map.on(eventName, scheduleStatsUpdate);
+            });
+
+            console.log(`🚀 實時統計已啟動，更新頻率: ${updateInterval}ms`);
+            updateStatus('運行中', true);
+        }
+
+        // 安排統計更新（防止過於頻繁）
+        function scheduleStatsUpdate() {
+            if (statsUpdateScheduled) return;
+
+            statsUpdateScheduled = true;
+            requestAnimationFrame(() => {
+                try {
+                    updateMapStats();
+                } finally {
+                    statsUpdateScheduled = false;
+                }
+            });
+        }
+
+        // 更新地圖統計
+        function updateMapStats() {
+            if (!map) return;
+
+            const startTime = performance.now();
+
+            try {
+                const center = map.getCenter();
+                const zoom = map.getZoom();
+                const bearing = map.getBearing();
+                const pitch = map.getPitch();
+
+                // 添加動畫效果
+                const elements = ['currentZoom', 'centerCoords', 'dataPoints', 'currentStyle', 'lastUpdateTime'];
+                elements.forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.classList.add('updating');
+                        setTimeout(() => element.classList.remove('updating'), 200);
+                    }
+                });
+
+                // 更新數值
+                updateElement('currentZoom', `${zoom.toFixed(2)}°`);
+                updateElement('centerCoords', `${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}`);
+                updateElement('dataPoints', currentCityGeoJSON ? currentCityGeoJSON.features.length : '0');
+
+                // 更新樣式名稱
+                const styleSelect = document.getElementById('mapStyle');
+                if (styleSelect && styleSelect.selectedIndex >= 0) {
+                    const selectedOption = styleSelect.options[styleSelect.selectedIndex];
+                    updateElement('currentStyle', selectedOption.text);
+                }
+
+                // 更新時間
+                const now = new Date();
+                updateElement('lastUpdateTime', now.toLocaleTimeString('zh-TW', {
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                }));
+
+                // 計算性能指標
+                const endTime = performance.now();
+                const responseTime = endTime - startTime;
+
+                totalUpdates++;
+                lastUpdateTimes.push(Date.now());
+
+                // 保持最近 10 秒的更新記錄
+                const tenSecondsAgo = Date.now() - 10000;
+                lastUpdateTimes = lastUpdateTimes.filter(time => time > tenSecondsAgo);
+
+                // 每秒更新一次性能統計
+                if (Date.now() - lastPerformanceUpdate > 1000) {
+                    updatePerformanceStats(responseTime);
+                    lastPerformanceUpdate = Date.now();
+                }
+
+            } catch (error) {
+                console.warn('⚠️ 更新統計時發生錯誤:', error);
+                updateStatus('更新錯誤', false);
+            }
+        }
+
+        // 更新性能統計
+        function updatePerformanceStats(responseTime) {
+            const frequency = lastUpdateTimes.length / 10; // 每秒更新次數
+            updateElement('updateFrequency', frequency.toFixed(1));
+            updateElement('totalUpdates', totalUpdates);
+            updateElement('avgResponseTime', responseTime.toFixed(1));
+        }
+
+        // 安全更新元素內容
+        function updateElement(id, content) {
+            const element = document.getElementById(id);
+            if (element && element.textContent !== content) {
+                element.textContent = content;
+            }
+        }
+
+        // 更新狀態指示器
+        function updateStatus(status, active) {
+            updateElement('updateStatus', status);
+            const indicator = document.getElementById('statusIndicator');
+            if (indicator) {
+                indicator.className = `status-indicator ${active ? 'status-active' : 'status-inactive'}`;
+            }
+        }
+
+        // 綁定控制事件
+        function bindControlEvents() {
+            // 地圖樣式切換
+            const styleSelect = document.getElementById('mapStyle');
+            styleSelect.addEventListener('change', (e) => {
+                const style = MAP_STYLES[e.target.value];
+                if (style) {
+                    map.setStyle(style);
+                    console.log(`🎨 地圖樣式已切換至: ${e.target.value}`);
+                }
+            });
+
+            // 更新頻率設定
+            const intervalSelect = document.getElementById('updateInterval');
+            intervalSelect.addEventListener('change', (e) => {
+                updateInterval = parseInt(e.target.value);
+                startRealtimeStats(); // 重新啟動更新器
+                console.log(`⚡ 更新頻率已設定為: ${updateInterval}ms`);
+            });
+        }
+
+        // 載入初始數據
+        function loadInitialData() {
+            // 生成一些示例數據點
+            generateRandomData();
+        }
+
+        // 生成隨機數據
+        function generateRandomData() {
+            const cities = [
+                { name: '台北', coords: [121.5654, 25.0330] },
+                { name: '台中', coords: [120.6736, 24.1477] },
+                { name: '高雄', coords: [120.3014, 22.6273] },
+                { name: '台南', coords: [120.2513, 22.9917] },
+                { name: '新竹', coords: [120.9647, 24.8138] },
+                { name: '基隆', coords: [121.7081, 25.1276] },
+                { name: '桃園', coords: [121.2168, 24.9936] },
+                { name: '嘉義', coords: [120.4473, 23.4801] },
+                { name: '宜蘭', coords: [121.7195, 24.7021] },
+                { name: '花蓮', coords: [121.6015, 23.9927] }
+            ];
+
+            const features = cities.map((city, index) => ({
+                type: 'Feature',
+                geometry: {
+                    type: 'Point',
+                    coordinates: city.coords
+                },
+                properties: {
+                    name: city.name,
+                    value: Math.floor(Math.random() * 100),
+                    size: Math.floor(Math.random() * 15) + 8
+                }
+            }));
+
+            currentCityGeoJSON = {
+                type: 'FeatureCollection',
+                features: features
+            };
+
+            // 添加到地圖
+            if (map.getSource('cities')) {
+                map.getSource('cities').setData(currentCityGeoJSON);
+            } else {
+                map.addSource('cities', {
+                    type: 'geojson',
+                    data: currentCityGeoJSON
+                });
+
+                map.addLayer({
+                    id: 'cities',
+                    type: 'circle',
+                    source: 'cities',
+                    paint: {
+                        'circle-radius': ['get', 'size'],
+                        'circle-color': [
+                            'interpolate',
+                            ['linear'],
+                            ['get', 'value'],
+                            0, '#3498db',
+                            25, '#2ecc71',
+                            50, '#f39c12',
+                            75, '#e74c3c',
+                            100, '#9b59b6'
+                        ],
+                        'circle-opacity': 0.8,
+                        'circle-stroke-width': 2,
+                        'circle-stroke-color': '#fff'
+                    }
+                });
+            }
+
+            console.log(`🎲 已生成 ${cities.length} 個隨機數據點`);
+        }
+
+        // 回到台灣
+        function resetToTaiwan() {
+            if (map) {
+                map.flyTo({
+                    center: [121.5654, 25.0330],
+                    zoom: 7,
+                    duration: 2000
+                });
+            }
+        }
+
+        // 頁面載入時初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 正在初始化實時統計地圖系統...');
+            initializeMap();
+        });
+
+        // 頁面可見性變化時暫停/恢復更新
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                console.log('⏸️ 頁面隱藏，暫停更新');
+                updateStatus('暫停中', false);
+            } else {
+                console.log('▶️ 頁面可見，恢復更新');
+                startRealtimeStats();
+            }
+        });
+    </script>
+</body>
+
+</html>

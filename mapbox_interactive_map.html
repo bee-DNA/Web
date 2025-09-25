@@ -640,33 +640,48 @@
             map.on('load', function () {
                 console.log('🗺️ 地圖載入完成');
 
-                // 添加控件
-                map.addControl(new mapboxgl.NavigationControl());
-                map.addControl(new mapboxgl.FullscreenControl());
-                map.addControl(new mapboxgl.ScaleControl({
-                    maxWidth: 100,
-                    unit: 'metric'
-                }));
+                try {
+                    // 添加控件
+                    map.addControl(new mapboxgl.NavigationControl());
+                    map.addControl(new mapboxgl.FullscreenControl());
+                    map.addControl(new mapboxgl.ScaleControl({
+                        maxWidth: 100,
+                        unit: 'metric'
+                    }));
 
-                applyLabelLanguage(currentLanguage);
+                    applyLabelLanguage(currentLanguage);
 
-                // 隱藏載入指示器
-                showLoading(false);
+                    // 更新統計資訊
+                    updateMapStats();
 
-                // 更新統計資訊
-                updateMapStats();
+                    // 監聽地圖事件
+                    const realtimeEvents = ['render', 'move', 'zoom', 'pitch', 'rotate'];
+                    realtimeEvents.forEach(eventName => {
+                        map.on(eventName, scheduleStatsUpdate);
+                    });
 
-                // 監聽地圖事件
-                const realtimeEvents = ['move', 'zoom'];
-                realtimeEvents.forEach(eventName => {
-                    map.on(eventName, scheduleStatsUpdate);
-                });
+                    // 在互動結束時也確保更新一次，以獲得最終精確值
+                    const endEvents = ['moveend', 'zoomend', 'pitchend', 'rotateend'];
+                    endEvents.forEach(eventName => {
+                        map.on(eventName, updateMapStats);
+                    });
 
-                // 在互動結束時也確保更新一次，以獲得最終精確值
-                const endEvents = ['moveend', 'zoomend', 'pitchend', 'rotateend'];
-                endEvents.forEach(eventName => {
-                    map.on(eventName, updateMapStats);
-                });
+                    // 確保載入完成後立即同步一次統計數據
+                    map.once('idle', updateMapStats);
+
+                    // 增加週期性備援，以防事件漏觸發
+                    setInterval(() => {
+                        if (!document.hidden) {
+                            updateMapStats();
+                        }
+                    }, 2000);
+                } catch (error) {
+                    console.error('初始化地圖時發生錯誤:', error);
+                    showError('地圖初始化發生錯誤，請稍後再試');
+                } finally {
+                    // 無論是否成功都嘗試隱藏載入指示器，避免畫面卡住
+                    showLoading(false);
+                }
             });
 
             // 錯誤處理
@@ -893,26 +908,45 @@
         function updateMapStats() {
             if (!map) return;
 
-            const center = map.getCenter();
-            const zoom = map.getZoom();
+            try {
+                const center = map.getCenter();
+                const zoom = map.getZoom();
 
-            document.getElementById('currentZoom').textContent = zoom.toFixed(2);
-            document.getElementById('centerCoords').textContent =
-                `${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}`;
-            document.getElementById('dataPoints').textContent =
-                currentCityGeoJSON ? currentCityGeoJSON.features.length : '0';
+                const zoomElement = document.getElementById('currentZoom');
+                if (zoomElement && typeof zoom === 'number') {
+                    zoomElement.textContent = zoom.toFixed(2);
+                }
 
-            const styleSelect = document.getElementById('mapStyle');
-            if (styleSelect) {
-                const selectedOption = styleSelect.options[styleSelect.selectedIndex];
-                document.getElementById('currentStyle').textContent = selectedOption.text;
-            }
+                const centerElement = document.getElementById('centerCoords');
+                if (centerElement && center) {
+                    centerElement.textContent = `${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}`;
+                }
 
-            document.getElementById('currentLabelLanguage').textContent = LANGUAGE_DISPLAY_NAMES[currentLanguage];
+                const dataPointElement = document.getElementById('dataPoints');
+                if (dataPointElement) {
+                    dataPointElement.textContent = currentCityGeoJSON ? currentCityGeoJSON.features.length : '0';
+                }
 
-            const pointStyleElement = document.getElementById('currentPointStyle');
-            if (pointStyleElement) {
-                pointStyleElement.textContent = POINT_STYLE_DISPLAY_NAMES[pointStyleMode] || POINT_STYLE_DISPLAY_NAMES.scaled;
+                const styleSelect = document.getElementById('mapStyle');
+                if (styleSelect && styleSelect.selectedIndex >= 0) {
+                    const selectedOption = styleSelect.options[styleSelect.selectedIndex];
+                    const currentStyleElement = document.getElementById('currentStyle');
+                    if (selectedOption && currentStyleElement) {
+                        currentStyleElement.textContent = selectedOption.text;
+                    }
+                }
+
+                const currentLabelElement = document.getElementById('currentLabelLanguage');
+                if (currentLabelElement) {
+                    currentLabelElement.textContent = LANGUAGE_DISPLAY_NAMES[currentLanguage];
+                }
+
+                const pointStyleElement = document.getElementById('currentPointStyle');
+                if (pointStyleElement) {
+                    pointStyleElement.textContent = POINT_STYLE_DISPLAY_NAMES[pointStyleMode] || POINT_STYLE_DISPLAY_NAMES.scaled;
+                }
+            } catch (error) {
+                console.warn('⚠️ 無法更新統計資訊', error);
             }
         }
 
@@ -920,8 +954,11 @@
             if (isStatsUpdateScheduled) return;
             isStatsUpdateScheduled = true;
             requestAnimationFrame(() => {
-                updateMapStats();
-                isStatsUpdateScheduled = false;
+                try {
+                    updateMapStats();
+                } finally {
+                    isStatsUpdateScheduled = false;
+                }
             });
         }
 

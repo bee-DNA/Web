@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌍 可收納統計面板地圖系統</title>
+
+    <!-- Mapbox GL JS -->
+    <script src='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css' rel='stylesheet' />
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .sidebar {
+            width: 350px;
+            background: white;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+            z-index: 100;
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .sidebar.collapsed {
+            transform: translateX(-310px);
+        }
+
+        .sidebar-toggle {
+            position: absolute;
+            right: -40px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 0 8px 8px 0;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 101;
+        }
+
+        .sidebar-toggle:hover {
+            transform: translateY(-50%) translateX(2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .sidebar-toggle .toggle-icon {
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar.collapsed .sidebar-toggle .toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        .panel {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .panel h3 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        /* 可收納統計面板樣式 */
+        .collapsible-stats {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-left: 4px solid #28a745;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .stats-header {
+            padding: 1rem 1.5rem;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            user-select: none;
+        }
+
+        .stats-header:hover {
+            background: linear-gradient(135deg, #218838 0%, #1e8a7a 100%);
+        }
+
+        .stats-header h3 {
+            margin: 0;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .stats-toggle {
+            font-size: 1.2rem;
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            display: flex;
+            align-items: center;
+        }
+
+        .stats-toggle::before {
+            content: "📊";
+            margin-right: 8px;
+        }
+
+        .stats-toggle::after {
+            content: "▼";
+            margin-left: 8px;
+        }
+
+        .collapsible-stats.collapsed .stats-toggle {
+            transform: rotate(-90deg);
+        }
+
+        .stats-content {
+            max-height: 500px;
+            overflow: hidden;
+            transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+            padding: 0 1.5rem;
+        }
+
+        .collapsible-stats.collapsed .stats-content {
+            max-height: 0;
+            padding: 0 1.5rem;
+        }
+
+        .stats-inner {
+            padding: 1.5rem 0;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            opacity: 0;
+            transform: translateY(10px);
+            animation: fadeInUp 0.6s ease forwards;
+        }
+
+        .stat-item:nth-child(1) {
+            animation-delay: 0.1s;
+        }
+
+        .stat-item:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .stat-item:nth-child(3) {
+            animation-delay: 0.3s;
+        }
+
+        .stat-item:nth-child(4) {
+            animation-delay: 0.4s;
+        }
+
+        .stat-item:nth-child(5) {
+            animation-delay: 0.5s;
+        }
+
+        .stat-item:nth-child(6) {
+            animation-delay: 0.6s;
+        }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .collapsible-stats.collapsed .stat-item {
+            animation: none;
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-item:hover {
+            background-color: rgba(40, 167, 69, 0.05);
+            transform: translateX(5px);
+            padding-left: 0.5rem;
+            border-radius: 4px;
+        }
+
+        .stat-label {
+            font-weight: 500;
+            color: #495057;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .stat-label::before {
+            content: "📍";
+            margin-right: 8px;
+            font-size: 1rem;
+        }
+
+        .stat-item:nth-child(1) .stat-label::before {
+            content: "🔍";
+        }
+
+        .stat-item:nth-child(2) .stat-label::before {
+            content: "📍";
+        }
+
+        .stat-item:nth-child(3) .stat-label::before {
+            content: "📊";
+        }
+
+        .stat-item:nth-child(4) .stat-label::before {
+            content: "🎨";
+        }
+
+        .stat-item:nth-child(5) .stat-label::before {
+            content: "🌐";
+        }
+
+        .stat-item:nth-child(6) .stat-label::before {
+            content: "⚙️";
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: #28a745;
+            font-size: 0.95rem;
+            background: rgba(40, 167, 69, 0.1);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            min-width: 80px;
+            text-align: center;
+            transition: all 0.3s ease;
+            font-family: 'Courier New', monospace;
+            border: 2px solid transparent;
+        }
+
+        .stat-value.updating {
+            animation: pulse 0.8s ease-in-out;
+            background: rgba(40, 167, 69, 0.2);
+            border-color: #28a745;
+            transform: scale(1.02);
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4);
+            }
+
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
+            }
+        }
+
+        /* 自動收納指示器 */
+        .auto-collapse-indicator {
+            position: absolute;
+            top: 10px;
+            right: 60px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            color: #28a745;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .auto-collapse-indicator.active {
+            opacity: 1;
+        }
+
+        /* 更新計數器 */
+        .update-counter {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(40, 167, 69, 0.1);
+            color: #28a745;
+            padding: 4px 8px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: bold;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+            transition: margin-left 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .sidebar.collapsed+.map-container {
+            margin-left: -310px;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 控制面板 */
+        .control-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #555;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        select,
+        button,
+        input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        select:focus,
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- 標題 -->
+        <div class="header">
+            <h1>🌍 可收納統計面板地圖系統</h1>
+            <p>智能收納統計面板，展開時自動更新數據，具備流暢動畫效果</p>
+        </div>
+
+        <div class="main-content">
+            <!-- 側邊欄 -->
+            <div class="sidebar" id="sidebar">
+                <!-- 側邊欄切換按鈕 -->
+                <button class="sidebar-toggle" onclick="toggleSidebar()">
+                    <span class="toggle-icon">◀</span>
+                </button>
+
+                <!-- 可收納統計面板 -->
+                <div class="collapsible-stats" id="collapsibleStats">
+                    <div class="stats-header" onclick="toggleStats()">
+                        <h3>實時地圖統計</h3>
+                        <div class="stats-toggle"></div>
+                    </div>
+
+                    <div class="stats-content">
+                        <div class="stats-inner">
+                            <div class="stat-item">
+                                <span class="stat-label">當前縮放級別</span>
+                                <span class="stat-value" id="currentZoom">載入中...</span>
+                            </div>
+
+                            <div class="stat-item">
+                                <span class="stat-label">中心座標</span>
+                                <span class="stat-value" id="centerCoords">載入中...</span>
+                            </div>
+
+                            <div class="stat-item">
+                                <span class="stat-label">載入的數據點</span>
+                                <span class="stat-value" id="dataPoints">0</span>
+                            </div>
+
+                            <div class="stat-item">
+                                <span class="stat-label">地圖樣式</span>
+                                <span class="stat-value" id="currentStyle">載入中...</span>
+                            </div>
+
+                            <div class="stat-item">
+                                <span class="stat-label">標籤語言</span>
+                                <span class="stat-value" id="currentLabelLanguage">中文</span>
+                            </div>
+
+                            <div class="stat-item">
+                                <span class="stat-label">數據點樣式</span>
+                                <span class="stat-value" id="currentPointStyle">依數據大小</span>
+                            </div>
+                        </div>
+
+                        <!-- 更新計數器 -->
+                        <div class="update-counter">
+                            更新: <span id="updateCounter">0</span> 次
+                        </div>
+                    </div>
+
+                    <!-- 自動收納指示器 -->
+                    <div class="auto-collapse-indicator" id="autoCollapseIndicator">
+                        <span id="autoCollapseCountdown">5</span>秒後自動收納
+                    </div>
+                </div>
+
+                <!-- 控制面板 -->
+                <div class="panel">
+                    <h3>🎛️ 地圖控制</h3>
+
+                    <div class="control-group">
+                        <label for="mapStyle">地圖樣式:</label>
+                        <select id="mapStyle">
+                            <option value="osm">OpenStreetMap</option>
+                            <option value="osm-dark">OpenStreetMap 深色</option>
+                            <option value="carto-positron">CartoDB 明亮版</option>
+                            <option value="carto-darkmatter">CartoDB 深色版</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="autoCollapseTime">自動收納時間:</label>
+                        <select id="autoCollapseTime">
+                            <option value="3">3秒後收納</option>
+                            <option value="5" selected>5秒後收納</option>
+                            <option value="8">8秒後收納</option>
+                            <option value="10">10秒後收納</option>
+                            <option value="0">關閉自動收納</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <button onclick="resetToTaiwan()">🇹🇼 回到台灣</button>
+                    </div>
+
+                    <div class="control-group">
+                        <button onclick="generateRandomData()">🎲 生成隨機數據</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 地圖容器 -->
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全域變數
+        let map;
+        let currentCityGeoJSON = null;
+        let statsCollapsed = false;
+        let sidebarCollapsed = false;
+        let autoCollapseTimer = null;
+        let autoCollapseTime = 5; // 預設5秒
+        let updateCounter = 0;
+
+        // 地圖樣式配置
+        const MAP_STYLES = {
+            'osm': {
+                version: 8,
+                sources: {
+                    'osm': {
+                        type: 'raster',
+                        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                        tileSize: 256,
+                        attribution: '© OpenStreetMap contributors'
+                    }
+                },
+                layers: [{
+                    id: 'osm',
+                    type: 'raster',
+                    source: 'osm'
+                }]
+            },
+            'osm-dark': {
+                version: 8,
+                sources: {
+                    'osm-dark': {
+                        type: 'raster',
+                        tiles: ['https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png'],
+                        tileSize: 256,
+                        attribution: '© OpenStreetMap contributors, © CartoDB'
+                    }
+                },
+                layers: [{
+                    id: 'osm-dark',
+                    type: 'raster',
+                    source: 'osm-dark'
+                }]
+            },
+            'carto-positron': {
+                version: 8,
+                sources: {
+                    'carto-positron': {
+                        type: 'raster',
+                        tiles: ['https://cartodb-basemaps-a.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png'],
+                        tileSize: 256,
+                        attribution: '© OpenStreetMap contributors, © CartoDB'
+                    }
+                },
+                layers: [{
+                    id: 'carto-positron',
+                    type: 'raster',
+                    source: 'carto-positron'
+                }]
+            },
+            'carto-darkmatter': {
+                version: 8,
+                sources: {
+                    'carto-darkmatter': {
+                        type: 'raster',
+                        tiles: ['https://cartodb-basemaps-a.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png'],
+                        tileSize: 256,
+                        attribution: '© OpenStreetMap contributors, © CartoDB'
+                    }
+                },
+                layers: [{
+                    id: 'carto-darkmatter',
+                    type: 'raster',
+                    source: 'carto-darkmatter'
+                }]
+            }
+        };
+
+        // 初始化地圖
+        function initializeMap() {
+            try {
+                map = new mapboxgl.Map({
+                    container: 'map',
+                    style: MAP_STYLES['osm'],
+                    center: [121.5654, 25.0330], // 台北
+                    zoom: 10,
+                    pitch: 0,
+                    bearing: 0
+                });
+
+                map.on('load', () => {
+                    console.log('✅ 地圖載入完成');
+                    loadInitialData();
+                    bindControlEvents();
+                    updateMapStats();
+
+                    // 綁定地圖移動事件
+                    map.on('move', updateMapStats);
+                    map.on('zoom', updateMapStats);
+                });
+
+                map.on('error', (e) => {
+                    console.error('❌ 地圖載入錯誤:', e);
+                });
+
+            } catch (error) {
+                console.error('❌ 地圖初始化失敗:', error);
+            }
+        }
+
+        // 切換統計面板
+        function toggleStats() {
+            const statsPanel = document.getElementById('collapsibleStats');
+            const indicator = document.getElementById('autoCollapseIndicator');
+
+            statsCollapsed = !statsCollapsed;
+
+            if (statsCollapsed) {
+                // 收納狀態
+                statsPanel.classList.add('collapsed');
+                indicator.classList.remove('active');
+                clearTimeout(autoCollapseTimer);
+                console.log('📊 統計面板已收納');
+            } else {
+                // 展開狀態
+                statsPanel.classList.remove('collapsed');
+
+                // 展開時立即更新所有數據
+                setTimeout(() => {
+                    updateMapStats(true); // 強制更新所有數據
+                }, 100);
+
+                // 啟動自動收納
+                if (autoCollapseTime > 0) {
+                    startAutoCollapse();
+                }
+
+                console.log('📊 統計面板已展開，自動更新數據');
+            }
+        }
+
+        // 開始自動收納倒計時
+        function startAutoCollapse() {
+            const indicator = document.getElementById('autoCollapseIndicator');
+            const countdownElement = document.getElementById('autoCollapseCountdown');
+
+            let timeLeft = autoCollapseTime;
+
+            indicator.classList.add('active');
+            countdownElement.textContent = timeLeft;
+
+            const countdownInterval = setInterval(() => {
+                timeLeft--;
+                countdownElement.textContent = timeLeft;
+
+                if (timeLeft <= 0) {
+                    clearInterval(countdownInterval);
+                    indicator.classList.remove('active');
+
+                    // 自動收納
+                    if (!statsCollapsed) {
+                        toggleStats();
+                    }
+                }
+            }, 1000);
+
+            // 儲存定時器以便取消
+            autoCollapseTimer = countdownInterval;
+        }
+
+        // 切換側邊欄
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebarCollapsed = !sidebarCollapsed;
+
+            if (sidebarCollapsed) {
+                sidebar.classList.add('collapsed');
+            } else {
+                sidebar.classList.remove('collapsed');
+            }
+        }
+
+        // 更新地圖統計
+        function updateMapStats(forceUpdate = false) {
+            if (!map) return;
+
+            updateCounter++;
+            document.getElementById('updateCounter').textContent = updateCounter;
+
+            try {
+                const center = map.getCenter();
+                const zoom = map.getZoom();
+
+                // 如果是強制更新（展開時），添加動畫效果
+                if (forceUpdate) {
+                    const elements = ['currentZoom', 'centerCoords', 'dataPoints', 'currentStyle', 'currentLabelLanguage', 'currentPointStyle'];
+                    elements.forEach((id, index) => {
+                        const element = document.getElementById(id);
+                        if (element) {
+                            setTimeout(() => {
+                                element.classList.add('updating');
+                                setTimeout(() => element.classList.remove('updating'), 800);
+                            }, index * 100);
+                        }
+                    });
+                }
+
+                // 更新數值
+                updateElement('currentZoom', `${zoom.toFixed(2)}°`);
+                updateElement('centerCoords', `${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}`);
+                updateElement('dataPoints', currentCityGeoJSON ? currentCityGeoJSON.features.length : '0');
+
+                // 更新樣式名稱
+                const styleSelect = document.getElementById('mapStyle');
+                if (styleSelect && styleSelect.selectedIndex >= 0) {
+                    const selectedOption = styleSelect.options[styleSelect.selectedIndex];
+                    updateElement('currentStyle', selectedOption.text);
+                }
+
+                updateElement('currentLabelLanguage', '中文');
+                updateElement('currentPointStyle', '依數據大小');
+
+            } catch (error) {
+                console.warn('⚠️ 更新統計時發生錯誤:', error);
+            }
+        }
+
+        // 安全更新元素內容
+        function updateElement(id, content) {
+            const element = document.getElementById(id);
+            if (element && element.textContent !== content) {
+                element.textContent = content;
+            }
+        }
+
+        // 綁定控制事件
+        function bindControlEvents() {
+            // 地圖樣式切換
+            const styleSelect = document.getElementById('mapStyle');
+            styleSelect.addEventListener('change', (e) => {
+                const style = MAP_STYLES[e.target.value];
+                if (style) {
+                    map.setStyle(style);
+                    console.log(`🎨 地圖樣式已切換至: ${e.target.value}`);
+                    setTimeout(() => updateMapStats(true), 1000); // 樣式載入後更新統計
+                }
+            });
+
+            // 自動收納時間設定
+            const autoCollapseSelect = document.getElementById('autoCollapseTime');
+            autoCollapseSelect.addEventListener('change', (e) => {
+                autoCollapseTime = parseInt(e.target.value);
+                console.log(`⏰ 自動收納時間設定為: ${autoCollapseTime}秒`);
+
+                // 如果統計面板是展開狀態，重新開始倒計時
+                if (!statsCollapsed && autoCollapseTime > 0) {
+                    clearTimeout(autoCollapseTimer);
+                    startAutoCollapse();
+                } else if (autoCollapseTime === 0) {
+                    // 關閉自動收納
+                    clearTimeout(autoCollapseTimer);
+                    document.getElementById('autoCollapseIndicator').classList.remove('active');
+                }
+            });
+        }
+
+        // 載入初始數據
+        function loadInitialData() {
+            generateRandomData();
+        }
+
+        // 生成隨機數據
+        function generateRandomData() {
+            const cities = [
+                { name: '台北', coords: [121.5654, 25.0330] },
+                { name: '台中', coords: [120.6736, 24.1477] },
+                { name: '高雄', coords: [120.3014, 22.6273] },
+                { name: '台南', coords: [120.2513, 22.9917] },
+                { name: '新竹', coords: [120.9647, 24.8138] },
+                { name: '基隆', coords: [121.7081, 25.1276] },
+                { name: '桃園', coords: [121.2168, 24.9936] },
+                { name: '嘉義', coords: [120.4473, 23.4801] },
+                { name: '宜蘭', coords: [121.7195, 24.7021] },
+                { name: '花蓮', coords: [121.6015, 23.9927] }
+            ];
+
+            const features = cities.map((city, index) => ({
+                type: 'Feature',
+                geometry: {
+                    type: 'Point',
+                    coordinates: city.coords
+                },
+                properties: {
+                    name: city.name,
+                    value: Math.floor(Math.random() * 100),
+                    size: Math.floor(Math.random() * 15) + 8
+                }
+            }));
+
+            currentCityGeoJSON = {
+                type: 'FeatureCollection',
+                features: features
+            };
+
+            // 添加到地圖
+            if (map.getSource('cities')) {
+                map.getSource('cities').setData(currentCityGeoJSON);
+            } else {
+                map.addSource('cities', {
+                    type: 'geojson',
+                    data: currentCityGeoJSON
+                });
+
+                map.addLayer({
+                    id: 'cities',
+                    type: 'circle',
+                    source: 'cities',
+                    paint: {
+                        'circle-radius': ['get', 'size'],
+                        'circle-color': [
+                            'interpolate',
+                            ['linear'],
+                            ['get', 'value'],
+                            0, '#3498db',
+                            25, '#2ecc71',
+                            50, '#f39c12',
+                            75, '#e74c3c',
+                            100, '#9b59b6'
+                        ],
+                        'circle-opacity': 0.8,
+                        'circle-stroke-width': 2,
+                        'circle-stroke-color': '#fff'
+                    }
+                });
+            }
+
+            updateMapStats(true);
+            console.log(`🎲 已生成 ${cities.length} 個隨機數據點`);
+        }
+
+        // 回到台灣
+        function resetToTaiwan() {
+            if (map) {
+                map.flyTo({
+                    center: [121.5654, 25.0330],
+                    zoom: 7,
+                    duration: 2000
+                });
+            }
+        }
+
+        // 頁面載入時初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 正在初始化可收納統計面板地圖系統...');
+            initializeMap();
+        });
+
+        // 鍵盤快捷鍵
+        document.addEventListener('keydown', (e) => {
+            // 按 'S' 鍵切換統計面板
+            if (e.key.toLowerCase() === 's' && !e.ctrlKey && !e.altKey) {
+                toggleStats();
+                e.preventDefault();
+            }
+
+            // 按 'Tab' 鍵切換側邊欄
+            if (e.key === 'Tab' && e.ctrlKey) {
+                toggleSidebar();
+                e.preventDefault();
+            }
+        });
+
+        // 滑鼠懸停暫停自動收納
+        document.getElementById('collapsibleStats').addEventListener('mouseenter', () => {
+            if (autoCollapseTimer) {
+                clearTimeout(autoCollapseTimer);
+                document.getElementById('autoCollapseIndicator').classList.remove('active');
+            }
+        });
+
+        document.getElementById('collapsibleStats').addEventListener('mouseleave', () => {
+            if (!statsCollapsed && autoCollapseTime > 0) {
+                startAutoCollapse();
+            }
+        });
+    </script>
+</body>
+
+</html>
