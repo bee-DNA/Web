@@ -955,4 +955,4 @@ def update_stats(
 if __name__ == "__main__":
     print("🚀 正在啟動可收納統計面板地圖系統...")
     print("📍 請在瀏覽器中開啟: http://127.0.0.1:8050/")
-    app.run_server(debug=True, port=8050)
+    app.run(debug=True, port=8050)
