@@ -91,6 +91,8 @@ Thumbs.db
 *.xlsx
 *.json
 !world_data_sample.csv
+!data_collector/insecta_runs.csv
+!data_collector/insecta_runs_sample.csv
 
 # Docker 相關
 .env
