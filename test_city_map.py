@@ -9,19 +9,20 @@ import sys
 import webbrowser
 from pathlib import Path
 
+
 def test_interactive_city_map():
     """測試互動式城市地圖系統"""
     print("🔍 互動式城市人口地圖系統測試")
     print("=" * 50)
-    
+
     # 檢查主要檔案
     required_files = [
         "interactive_city_map.html",
-        "start_city_map.bat", 
+        "start_city_map.bat",
         "start_city_map_simple.ps1",
-        "INTERACTIVE_CITY_MAP_GUIDE.md"
+        "INTERACTIVE_CITY_MAP_GUIDE.md",
     ]
-    
+
     print("\n📂 檔案完整性檢查:")
     all_files_exist = True
     for file in required_files:
@@ -30,13 +31,13 @@ def test_interactive_city_map():
         else:
             print(f"  ❌ {file} (缺失)")
             all_files_exist = False
-    
+
     # 檢查 HTML 檔案內容
     print("\n🧪 功能測試:")
     try:
-        with open("interactive_city_map.html", 'r', encoding='utf-8') as f:
+        with open("interactive_city_map.html", "r", encoding="utf-8") as f:
             content = f.read()
-            
+
         # 檢查關鍵功能
         features = {
             "Mapbox GL JS": "mapboxgl.accessToken" in content,
@@ -45,28 +46,28 @@ def test_interactive_city_map():
             "響應式設計": "@media" in content,
             "多語言支援": "name_zh" in content and "name_en" in content,
             "統計功能": "updateStats" in content,
-            "互動功能": "onCityClick" in content
+            "互動功能": "onCityClick" in content,
         }
-        
+
         for feature, exists in features.items():
             status = "✅" if exists else "❌"
             print(f"  {status} {feature}")
-            
+
     except Exception as e:
         print(f"  ❌ HTML 檔案讀取失敗: {e}")
         all_files_exist = False
-    
+
     # 系統建議
     print(f"\n📊 測試摘要:")
     print(f"  檔案完整性: {'✅ 通過' if all_files_exist else '❌ 失敗'}")
-    
+
     if all_files_exist:
         print(f"  系統狀態: 🟢 就緒")
         print(f"\n🚀 啟動建議:")
         print(f"  1. 雙擊開啟: interactive_city_map.html")
         print(f"  2. PowerShell: Invoke-Item 'interactive_city_map.html'")
         print(f"  3. 或執行: start_city_map_simple.ps1")
-        
+
         print(f"\n🌟 系統特色:")
         print(f"  📍 全球 25 個主要城市人口資料")
         print(f"  🎨 5 種地圖樣式 (街道/衛星/簡約/暗色/戶外)")
@@ -74,11 +75,12 @@ def test_interactive_city_map():
         print(f"  📊 即時統計資訊")
         print(f"  🎬 豐富動畫效果")
         print(f"  📱 響應式設計")
-        
+
     else:
         print(f"  系統狀態: 🔴 需要修復")
-    
+
     return all_files_exist
+
 
 def open_interactive_map():
     """開啟互動式地圖"""
@@ -91,9 +93,11 @@ def open_interactive_map():
         print("❌ 找不到 interactive_city_map.html")
         return False
 
+
 def show_help():
     """顯示使用說明"""
-    print("""
+    print(
+        """
 🌍 互動式城市人口地圖系統使用指南
 
 📋 可用命令:
@@ -128,12 +132,14 @@ def show_help():
   • 使用右側按鈕快速跳轉到各大洲
   • 滾輪縮放，拖拽移動地圖
   • 左側控制面板調整設定
-    """)
+    """
+    )
+
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         command = sys.argv[1].lower()
-        
+
         if command == "test":
             test_interactive_city_map()
         elif command == "open":

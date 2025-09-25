@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌍 互動式城市人口地圖系統</title>
+
+    <!-- Mapbox GL JS -->
+    <script src='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css' rel='stylesheet' />
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            animation: fadeIn 1s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            animation: slideDown 0.8s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 320px;
+            background: white;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+            z-index: 100;
+            animation: slideInLeft 0.8s ease-out;
+        }
+
+        @keyframes slideInLeft {
+            from {
+                transform: translateX(-100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .panel {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .panel h3 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .control-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #555;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        select,
+        button,
+        input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        select:focus,
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 統計資訊面板 */
+        .stats-container {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            margin-top: 1rem;
+        }
+
+        .stats-header {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stats-header:hover {
+            background: linear-gradient(135deg, #218838 0%, #1e8a7a 100%);
+        }
+
+        .stats-title {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .toggle-icon {
+            font-size: 1.5rem;
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .stats-content {
+            transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+            overflow: hidden;
+            max-height: 500px;
+            opacity: 1;
+        }
+
+        .collapsed .stats-content {
+            max-height: 0 !important;
+            opacity: 0;
+        }
+
+        .collapsed .toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem 1.5rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            animation: fadeInUp 0.6s ease forwards;
+        }
+
+        .stat-item:hover {
+            background-color: rgba(40, 167, 69, 0.05);
+            transform: translateX(5px);
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.95rem;
+        }
+
+        .stat-value {
+            font-weight: 700;
+            color: #28a745;
+            background: rgba(40, 167, 69, 0.1);
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 區域快速跳轉按鈕 */
+        .region-buttons {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            animation: slideInRight 1s ease-out;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .region-btn {
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+            border: 2px solid #667eea;
+            padding: 0.6rem 1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .region-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* 響應式設計 */
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                max-height: 50vh;
+            }
+
+            .region-buttons {
+                flex-direction: row;
+                flex-wrap: wrap;
+                top: 10px;
+                right: 10px;
+                gap: 5px;
+            }
+
+            .region-btn {
+                padding: 0.4rem 0.8rem;
+                font-size: 0.7rem;
+                min-width: 60px;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .header {
+                padding: 1rem;
+            }
+        }
+
+        /* 地圖彈窗樣式 */
+        .mapboxgl-popup-content {
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            padding: 1.5rem 1.25rem 1.25rem;
+            animation: popIn 0.3s ease-out;
+        }
+
+        @keyframes popIn {
+            from {
+                opacity: 0;
+                transform: scale(0.8) translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .mapboxgl-popup-close-button {
+            font-size: 16px;
+            padding: 4px;
+            top: 6px;
+            right: 6px;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            line-height: 18px;
+        }
+
+        /* 城市人口顯示樣式 */
+        .city-info {
+            padding: 10px;
+            min-width: 200px;
+        }
+
+        .city-info h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 1.2rem;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 5px;
+        }
+
+        .city-info p {
+            margin: 8px 0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .population-highlight {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        /* 載入動畫效果 */
+        .fade-in-up {
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        .slide-in-left {
+            animation: slideInLeft 0.8s ease-out;
+        }
+
+        .slide-in-right {
+            animation: slideInRight 0.8s ease-out;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- 標題區域 -->
+        <header class="header">
+            <h1>🌍 互動式城市人口地圖系統</h1>
+            <p>探索全球主要城市的人口分布與地理資訊 - 點擊城市查看詳細資料</p>
+        </header>
+
+        <!-- 主要內容區域 -->
+        <div class="main-content">
+            <!-- 側邊欄控制面板 -->
+            <aside class="sidebar">
+                <!-- 地圖樣式控制 -->
+                <div class="panel">
+                    <h3>🎨 地圖樣式</h3>
+                    <div class="control-group">
+                        <label for="mapStyle">選擇地圖樣式</label>
+                        <select id="mapStyle" onchange="changeMapStyle(this.value)">
+                            <option value="mapbox://styles/mapbox/streets-v12">街道地圖</option>
+                            <option value="mapbox://styles/mapbox/outdoors-v12">戶外地圖</option>
+                            <option value="mapbox://styles/mapbox/light-v11">淺色地圖</option>
+                            <option value="mapbox://styles/mapbox/dark-v11">深色地圖</option>
+                            <option value="mapbox://styles/mapbox/satellite-v9">衛星地圖</option>
+                            <option value="mapbox://styles/mapbox/satellite-streets-v12">衛星街道</option>
+                            <option value="mapbox://styles/mapbox/navigation-day-v1">導航日間</option>
+                            <option value="mapbox://styles/mapbox/navigation-night-v1">導航夜間</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 顯示控制 -->
+                <div class="panel">
+                    <h3>🌐 顯示語言</h3>
+                    <div class="control-group">
+                        <label for="labelLanguage">城市名稱語言</label>
+                        <select id="labelLanguage" onchange="changeLabelLanguage(this.value)">
+                            <option value="zh">中文</option>
+                            <option value="en">English</option>
+                            <option value="default">預設 (多語)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 數據點樣式 -->
+                <div class="panel">
+                    <h3>📍 點樣式模式</h3>
+                    <div class="control-group">
+                        <label for="pointStyleMode">數據點大小</label>
+                        <select id="pointStyleMode" onchange="changePointStyleMode(this.value)">
+                            <option value="population">按人口調整大小</option>
+                            <option value="fixed">統一大小</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 控制按鈕 -->
+                <div class="panel">
+                    <h3>🔧 控制功能</h3>
+                    <div class="control-group">
+                        <button onclick="resetMapView()">🔍 重置視圖</button>
+                    </div>
+                    <div class="control-group">
+                        <button onclick="toggleFullscreen()">📺 全螢幕模式</button>
+                    </div>
+                    <div class="control-group">
+                        <button onclick="returnToPreviousView()" id="returnViewBtn"
+                            style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); display: none;">🔙
+                            返回之前視圖</button>
+                    </div>
+                </div>
+
+                <!-- 統計資訊面板 -->
+                <div class="stats-container" id="statsPanel">
+                    <div class="stats-header" onclick="toggleStatsPanel()">
+                        <h3 class="stats-title">📊 統計資訊</h3>
+                        <span class="toggle-icon" id="toggleIcon">▼</span>
+                    </div>
+                    <div class="stats-content" id="statsContent">
+                        <div class="stat-item fade-in-up">
+                            <span class="stat-label">🏙️ 城市數量</span>
+                            <span class="stat-value" id="cityCount">25</span>
+                        </div>
+                        <div class="stat-item fade-in-up">
+                            <span class="stat-label">👥 總人口</span>
+                            <span class="stat-value" id="totalPopulation">310.6M</span>
+                        </div>
+                        <div class="stat-item fade-in-up">
+                            <span class="stat-label">📈 平均人口</span>
+                            <span class="stat-value" id="avgPopulation">12.4M</span>
+                        </div>
+                        <div class="stat-item fade-in-up">
+                            <span class="stat-label">🌟 最大城市</span>
+                            <span class="stat-value" id="largestCity">東京</span>
+                        </div>
+                        <div class="stat-item fade-in-up">
+                            <span class="stat-label">🔍 當前縮放</span>
+                            <span class="stat-value" id="currentZoom">2.0</span>
+                        </div>
+                        <div class="stat-item fade-in-up">
+                            <span class="stat-label">⏰ 最後更新</span>
+                            <span class="stat-value" id="lastUpdate">載入中...</span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- 地圖容器 -->
+            <main class="map-container">
+                <div id="map"></div>
+
+                <!-- 區域快速跳轉按鈕 -->
+                <div class="region-buttons">
+                    <button class="region-btn" onclick="resetMapView()" style="background: #667eea; color: white;">🌍
+                        全球</button>
+                    <button class="region-btn" onclick="flyToRegion('asia')">🏮 亞洲</button>
+                    <button class="region-btn" onclick="flyToRegion('europe')">🏰 歐洲</button>
+                    <button class="region-btn" onclick="flyToRegion('america')">🗽 美洲</button>
+                    <button class="region-btn" onclick="flyToRegion('africa')">🦁 非洲</button>
+                    <button class="region-btn" onclick="flyToRegion('oceania')">🏄 大洋洲</button>
+                </div>
+
+                <!-- 載入指示器 -->
+                <div id="loadingIndicator" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <div>正在載入地圖...</div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // 全域變數
+        let map;
+        let currentLanguage = 'zh';
+        let pointStyleMode = 'population';
+        let statsCollapsed = false;
+        let previousView = null; // 儲存點擊前的視圖狀態
+
+        // 語言配置
+        const LABEL_LAYER_IDS = [
+            'country-label', 'country-label-sm', 'state-label',
+            'settlement-label', 'settlement-subdivision-label',
+            'settlement-label-sm', 'settlement-subdivision-label-sm',
+            'airport-label', 'waterway-label', 'poi-label',
+            'road-label', 'road-label-navigation', 'road-label-small'
+        ];
+
+        const LANGUAGE_FIELDS = {
+            zh: ['coalesce',
+                ['get', 'name_zh-Hant'],
+                ['get', 'name_zh-Hans'],
+                ['get', 'name_zh'],
+                ['get', 'name'],
+                ['get', 'name_en']
+            ],
+            en: ['coalesce', ['get', 'name_en'], ['get', 'name'], ['get', 'name_zh']],
+            default: ['coalesce', ['get', 'name'], ['get', 'name_en'], ['get', 'name_zh']]
+        };
+
+        const LANGUAGE_DISPLAY_NAMES = {
+            zh: '中文',
+            en: 'English',
+            default: '預設 (多語)'
+        };
+
+        // 城市數據 (25個全球主要城市)
+        const CITY_DATA = [
+            { name_zh: '東京', name_en: 'Tokyo', coordinates: [139.6917, 35.6895], population: 37400068, country: '日本' },
+            { name_zh: '雅加達', name_en: 'Jakarta', coordinates: [106.8650, -6.1751], population: 10562088, country: '印尼' },
+            { name_zh: '德里', name_en: 'Delhi', coordinates: [77.1025, 28.7041], population: 29399141, country: '印度' },
+            { name_zh: '馬尼拉', name_en: 'Manila', coordinates: [120.9842, 14.5995], population: 13482462, country: '菲律賓' },
+            { name_zh: '上海', name_en: 'Shanghai', coordinates: [121.4737, 31.2304], population: 24870895, country: '中國' },
+            { name_zh: '聖保羅', name_en: 'São Paulo', coordinates: [-46.6333, -23.5505], population: 21831000, country: '巴西' },
+            { name_zh: '首爾', name_en: 'Seoul', coordinates: [126.9780, 37.5665], population: 9733509, country: '韓國' },
+            { name_zh: '墨西哥城', name_en: 'Mexico City', coordinates: [-99.1332, 19.4326], population: 21581000, country: '墨西哥' },
+            { name_zh: '開羅', name_en: 'Cairo', coordinates: [31.2357, 30.0444], population: 18772000, country: '埃及' },
+            { name_zh: '孟買', name_en: 'Mumbai', coordinates: [72.8777, 19.0760], population: 19980000, country: '印度' },
+            { name_zh: '北京', name_en: 'Beijing', coordinates: [116.4074, 39.9042], population: 21542000, country: '中國' },
+            { name_zh: '達卡', name_en: 'Dhaka', coordinates: [90.4125, 23.8103], population: 20284000, country: '孟加拉' },
+            { name_zh: '大阪', name_en: 'Osaka', coordinates: [135.5023, 34.6937], population: 19222665, country: '日本' },
+            { name_zh: '紐約', name_en: 'New York', coordinates: [-74.0059, 40.7128], population: 18819000, country: '美國' },
+            { name_zh: '卡拉奇', name_en: 'Karachi', coordinates: [67.0011, 24.8607], population: 14910352, country: '巴基斯坦' },
+            { name_zh: '布宜諾斯艾利斯', name_en: 'Buenos Aires', coordinates: [-58.3816, -34.6037], population: 14967000, country: '阿根廷' },
+            { name_zh: '鄭州', name_en: 'Zhengzhou', coordinates: [113.6254, 34.7466], population: 10120000, country: '中國' },
+            { name_zh: '伊斯坦堡', name_en: 'Istanbul', coordinates: [28.9784, 41.0082], population: 14751000, country: '土耳其' },
+            { name_zh: '重慶', name_en: 'Chongqing', coordinates: [106.9128, 29.4316], population: 14838000, country: '中國' },
+            { name_zh: '拉各斯', name_en: 'Lagos', coordinates: [3.3792, 6.5244], population: 13463000, country: '奈及利亞' },
+            { name_zh: '馬德里', name_en: 'Madrid', coordinates: [-3.7038, 40.4168], population: 6155116, country: '西班牙' },
+            { name_zh: '台北', name_en: 'Taipei', coordinates: [121.5654, 25.0330], population: 2700000, country: '台灣' },
+            { name_zh: '香港', name_en: 'Hong Kong', coordinates: [114.1694, 22.3193], population: 7496981, country: '香港' },
+            { name_zh: '新加坡', name_en: 'Singapore', coordinates: [103.8198, 1.3521], population: 5850342, country: '新加坡' },
+            { name_zh: '倫敦', name_en: 'London', coordinates: [-0.1276, 51.5074], population: 8982000, country: '英國' }
+        ];
+
+        // 區域坐標
+        const REGIONS = {
+            asia: { center: [116, 35], zoom: 3 },
+            europe: { center: [10, 50], zoom: 3.5 },
+            america: { center: [-74, 40], zoom: 2.5 },
+            africa: { center: [20, 0], zoom: 2.5 },
+            oceania: { center: [151, -33], zoom: 4 }
+        };
+
+        // 初始化地圖
+        function initializeMap() {
+            showLoading(true);
+
+            // 設定 Mapbox Access Token
+            mapboxgl.accessToken = 'pk.eyJ1IjoiYmVlLWRuYSIsImEiOiJjbWZ5MTlhOTkwZnF3MmxvbjkwN2RtM2Z4In0.yFiY2MNpWqaDINuLaz1e0w';
+
+            // 建立地圖實例
+            map = new mapboxgl.Map({
+                container: 'map',
+                style: 'mapbox://styles/mapbox/streets-v12',
+                center: [121.5654, 25.0330], // 台北為中心
+                zoom: 2,
+                pitch: 0,
+                bearing: 0
+            });
+
+            // 地圖載入完成事件
+            map.on('load', function () {
+                console.log('🗺️ 地圖載入完成');
+
+                // 添加控件
+                map.addControl(new mapboxgl.NavigationControl());
+                map.addControl(new mapboxgl.FullscreenControl());
+                map.addControl(new mapboxgl.ScaleControl({
+                    maxWidth: 100,
+                    unit: 'metric'
+                }));
+
+                // 應用地圖標籤語言
+                applyMapLabelLanguage(currentLanguage);
+
+                // 載入城市數據
+                loadCityData();
+                updateStats();
+
+                // 監聽地圖移動事件
+                map.on('moveend', updateStats);
+                map.on('zoomend', updateStats);
+
+                showLoading(false);
+            });
+
+            // 錯誤處理
+            map.on('error', function (e) {
+                console.error('地圖載入錯誤:', e);
+                showLoading(false);
+            });
+        }
+
+        // 載入城市數據
+        function loadCityData() {
+            if (!map) return;
+
+            // 準備 GeoJSON 數據
+            const geojsonData = {
+                type: 'FeatureCollection',
+                features: CITY_DATA.map(city => ({
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: city.coordinates
+                    },
+                    properties: {
+                        name_zh: city.name_zh,
+                        name_en: city.name_en,
+                        population: city.population,
+                        country: city.country
+                    }
+                }))
+            };
+
+            // 添加數據源
+            map.addSource('cities', {
+                type: 'geojson',
+                data: geojsonData
+            });
+
+            // 添加城市圓點層
+            map.addLayer({
+                id: 'cities',
+                type: 'circle',
+                source: 'cities',
+                paint: {
+                    'circle-radius': getCircleRadius(),
+                    'circle-color': getCircleColor(),
+                    'circle-opacity': 0.8,
+                    'circle-stroke-width': 2,
+                    'circle-stroke-color': '#fff'
+                }
+            });
+
+            // 添加城市標籤層
+            map.addLayer({
+                id: 'city-labels',
+                type: 'symbol',
+                source: 'cities',
+                layout: {
+                    'text-field': getCityNameExpression(),
+                    'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+                    'text-offset': [0, 1.5],
+                    'text-anchor': 'top',
+                    'text-size': 12
+                },
+                paint: {
+                    'text-color': '#333',
+                    'text-halo-color': '#fff',
+                    'text-halo-width': 1
+                }
+            });
+
+            // 添加點擊事件
+            map.on('click', 'cities', onCityClick);
+            map.on('mouseenter', 'cities', () => map.getCanvas().style.cursor = 'pointer');
+            map.on('mouseleave', 'cities', () => map.getCanvas().style.cursor = '');
+        }
+
+        // 獲取圓點半徑表達式
+        function getCircleRadius() {
+            if (pointStyleMode === 'population') {
+                return [
+                    'interpolate',
+                    ['linear'],
+                    ['get', 'population'],
+                    1000000, 8,
+                    10000000, 15,
+                    20000000, 25,
+                    40000000, 35
+                ];
+            } else {
+                return 12;
+            }
+        }
+
+        // 獲取圓點顏色表達式
+        function getCircleColor() {
+            if (pointStyleMode === 'population') {
+                return [
+                    'interpolate',
+                    ['linear'],
+                    ['get', 'population'],
+                    1000000, '#FED976',
+                    5000000, '#FD8D3C',
+                    10000000, '#E31A1C',
+                    20000000, '#800026'
+                ];
+            } else {
+                return '#3b82f6';
+            }
+        }
+
+        // 獲取城市名稱表達式
+        function getCityNameExpression() {
+            const CITY_LANGUAGE_FIELDS = {
+                zh: ['coalesce', ['get', 'name_zh'], ['get', 'name_en'], ['get', 'name']],
+                en: ['coalesce', ['get', 'name_en'], ['get', 'name'], ['get', 'name_zh']],
+                default: ['coalesce', ['get', 'name'], ['get', 'name_en'], ['get', 'name_zh']]
+            };
+            return CITY_LANGUAGE_FIELDS[currentLanguage] || CITY_LANGUAGE_FIELDS.default;
+        }
+
+        // 獲取本地化城市名稱
+        function getLocalizedCityName(properties, language = currentLanguage) {
+            if (!properties) return '未知城市';
+
+            const languageOrder = {
+                zh: ['name_zh', 'name', 'name_en'],
+                en: ['name_en', 'name', 'name_zh'],
+                default: ['name', 'name_en', 'name_zh']
+            };
+
+            const keys = languageOrder[language] || languageOrder.default;
+            for (const key of keys) {
+                if (properties[key]) {
+                    return properties[key];
+                }
+            }
+
+            return properties.name || properties.name_zh || properties.name_en || '未知城市';
+        }
+
+        // 城市點擊事件
+        function onCityClick(e) {
+            const feature = e.features[0];
+            const coordinates = feature.geometry.coordinates.slice();
+            const properties = feature.properties;
+
+            const cityName = getLocalizedCityName(properties);
+            const population = properties.population;
+
+            // 儲存當前視圖狀態（點擊前的狀態）
+            previousView = {
+                center: map.getCenter(),
+                zoom: map.getZoom(),
+                pitch: map.getPitch(),
+                bearing: map.getBearing()
+            };
+
+            // 顯示返回按鈕
+            const returnBtn = document.getElementById('returnViewBtn');
+            if (returnBtn) {
+                returnBtn.style.display = 'block';
+            }
+
+            console.log('💾 已儲存當前視圖狀態:', {
+                zoom: previousView.zoom.toFixed(2),
+                center: [previousView.center.lng.toFixed(4), previousView.center.lat.toFixed(4)]
+            });
+
+            // 智能縮放邏輯
+            const currentZoom = map.getZoom();
+            let targetZoom;
+
+            if (currentZoom < 5) {
+                targetZoom = 10; // 從遠距離視圖放大到城市級別
+            } else if (currentZoom < 8) {
+                targetZoom = 12; // 從中等距離放大到詳細級別
+            } else {
+                targetZoom = Math.min(currentZoom + 3, 15); // 已經很近時適度放大
+            }
+
+            // 顯示飛行中的提示
+            console.log(`🚁 飛行到 ${cityName} (縮放: ${currentZoom.toFixed(1)} → ${targetZoom})`);
+
+            map.flyTo({
+                center: coordinates,
+                zoom: targetZoom,
+                duration: 1500, // 1.5秒的飛行動畫
+                curve: 1.2, // 飛行路徑的彎曲度
+                easing: function (t) {
+                    // 緩動函數，讓動畫更流暢
+                    return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+                }
+            });
+
+            // 先關閉所有現有彈窗，避免衝突
+            const existingPopups = document.querySelectorAll('.mapboxgl-popup');
+            existingPopups.forEach(popup => popup.remove());
+
+            // 延遲顯示彈窗，等待飛行動畫完成一半
+            setTimeout(() => {
+                // 創建彈窗內容
+                const popupContent = `
+                    <div class="city-info">
+                        <h3>${cityName}</h3>
+                        <p><strong>國家/地區：</strong>${properties.country}</p>
+                        <p><strong>人口數量：</strong><span class="population-highlight">${population.toLocaleString()}</span> 人</p>
+                        <p><strong>座標位置：</strong>${coordinates[1].toFixed(4)}, ${coordinates[0].toFixed(4)}</p>
+                        <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #eee; font-size: 0.8rem; color: #666;">
+                            💡 關閉此彈窗將返回原本視圖
+                        </div>
+                    </div>
+                `;
+
+                // 創建新彈窗
+                const popup = new mapboxgl.Popup({
+                    closeButton: true,
+                    closeOnClick: false,
+                    maxWidth: '300px',
+                    focusAfterOpen: false // 防止焦點問題導致的事件衝突
+                })
+                    .setLngLat(coordinates)
+                    .setHTML(popupContent)
+                    .addTo(map);
+
+                // 確保彈窗正確顯示後再監聽事件
+                setTimeout(() => {
+                    // 監聽彈窗關閉事件
+                    popup.on('close', function () {
+                        console.log('🔙 彈窗關閉事件觸發');
+                        if (previousView) {
+                            console.log('🔙 執行返回之前的視圖');
+                            // 使用 setTimeout 確保事件處理完成後再執行返回
+                            setTimeout(() => {
+                                returnToPreviousView();
+                            }, 100);
+                        }
+                    });
+
+                    // 添加額外的點擊監聽，確保關閉按鈕正常工作
+                    const closeButton = document.querySelector('.mapboxgl-popup-close-button');
+                    if (closeButton) {
+                        closeButton.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('🔙 關閉按鈕直接點擊事件');
+                            popup.remove();
+                            if (previousView) {
+                                setTimeout(() => {
+                                    returnToPreviousView();
+                                }, 100);
+                            }
+                        }, { once: true }); // 只執行一次
+                    }
+                }, 50); // 等待彈窗完全渲染
+            }, 800); // 等待800毫秒再顯示彈窗
+        }
+
+        // 應用地圖標籤語言
+        function applyMapLabelLanguage(language) {
+            if (!map) return;
+
+            const applyToLayers = () => {
+                const field = LANGUAGE_FIELDS[language] || LANGUAGE_FIELDS.default;
+
+                LABEL_LAYER_IDS.forEach(layerId => {
+                    if (map.getLayer(layerId)) {
+                        try {
+                            map.setLayoutProperty(layerId, 'text-field', field);
+                        } catch (error) {
+                            console.warn(`⚠️  無法更新圖層 ${layerId} 的標籤語言`, error);
+                        }
+                    }
+                });
+
+                // 處理其他可能的標籤圖層
+                const style = map.getStyle();
+                if (style && Array.isArray(style.layers)) {
+                    style.layers.forEach(layer => {
+                        if (!layer || layer.type !== 'symbol') return;
+                        if (!layer.layout || !layer.layout['text-field']) return;
+                        if (layer.id && layer.id.includes('city')) return; // 跳過城市標籤
+
+                        const textField = layer.layout['text-field'];
+                        const textFieldString = typeof textField === 'string'
+                            ? textField
+                            : Array.isArray(textField)
+                                ? JSON.stringify(textField)
+                                : '';
+
+                        if (textFieldString.includes('name') && layer.id.includes('label')) {
+                            try {
+                                map.setLayoutProperty(layer.id, 'text-field', field);
+                            } catch (error) {
+                                console.warn(`⚠️  無法更新圖層 ${layer.id} 的標籤語言`, error);
+                            }
+                        }
+                    });
+                }
+            };
+
+            if (!map.isStyleLoaded()) {
+                map.once('styledata', applyToLayers);
+                return;
+            }
+
+            applyToLayers();
+        }
+
+        // 改變地圖樣式
+        function changeMapStyle(styleUrl) {
+            if (!map) return;
+
+            showLoading(true, '切換地圖樣式中...');
+            map.setStyle(styleUrl);
+
+            map.once('styledata', () => {
+                applyMapLabelLanguage(currentLanguage);
+                loadCityData();
+                showLoading(false);
+            });
+        }
+
+        // 改變標籤語言
+        function changeLabelLanguage(language) {
+            currentLanguage = language;
+
+            // 應用地圖標籤語言
+            applyMapLabelLanguage(language);
+
+            // 更新城市標籤
+            if (map && map.getLayer('city-labels')) {
+                try {
+                    map.setLayoutProperty('city-labels', 'text-field', getCityNameExpression());
+                } catch (error) {
+                    console.warn('⚠️  無法更新城市標籤語言', error);
+                }
+            }
+
+            // 更新語言選擇器
+            const languageSelect = document.getElementById('labelLanguage');
+            if (languageSelect && languageSelect.value !== language) {
+                languageSelect.value = language;
+            }
+
+            // 更新統計資料
+            updateStats();
+
+            const displayName = LANGUAGE_DISPLAY_NAMES[language] || LANGUAGE_DISPLAY_NAMES.default;
+            console.log('🌐 語言已切換為:', displayName);
+        }
+
+        // 改變點樣式模式
+        function changePointStyleMode(mode) {
+            pointStyleMode = mode;
+            if (map && map.getLayer('cities')) {
+                map.setPaintProperty('cities', 'circle-radius', getCircleRadius());
+                map.setPaintProperty('cities', 'circle-color', getCircleColor());
+            }
+        }
+
+        // 飛行到區域
+        function flyToRegion(region) {
+            if (!map || !REGIONS[region]) return;
+
+            const regionNames = {
+                asia: '亞洲',
+                europe: '歐洲',
+                america: '美洲',
+                africa: '非洲',
+                oceania: '大洋洲'
+            };
+
+            console.log(`🌏 飛行到 ${regionNames[region] || region}`);
+
+            // 關閉所有彈窗
+            const popups = document.querySelectorAll('.mapboxgl-popup');
+            popups.forEach(popup => popup.remove());
+
+            // 清除之前視圖狀態
+            previousView = null;
+
+            // 隱藏返回按鈕
+            const returnBtn = document.getElementById('returnViewBtn');
+            if (returnBtn) {
+                returnBtn.style.display = 'none';
+            }
+
+            const { center, zoom } = REGIONS[region];
+            map.flyTo({
+                center: center,
+                zoom: zoom,
+                duration: 2000,
+                curve: 1.3,
+                easing: function (t) {
+                    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; // ease-in-out cubic
+                }
+            });
+        }
+
+        // 返回之前的視圖
+        function returnToPreviousView() {
+            if (!map || !previousView) {
+                console.log('⚠️  沒有儲存的視圖狀態');
+                return;
+            }
+
+            console.log('🔙 返回之前的視圖:', {
+                zoom: previousView.zoom.toFixed(2),
+                center: [previousView.center.lng.toFixed(4), previousView.center.lat.toFixed(4)]
+            });
+
+            // 確保所有彈窗都被關閉
+            const popups = document.querySelectorAll('.mapboxgl-popup');
+            popups.forEach(popup => {
+                try {
+                    popup.remove();
+                } catch (error) {
+                    console.warn('清理彈窗時出現錯誤:', error);
+                }
+            });
+
+            map.flyTo({
+                center: [previousView.center.lng, previousView.center.lat],
+                zoom: previousView.zoom,
+                pitch: previousView.pitch,
+                bearing: previousView.bearing,
+                duration: 1200, // 稍微快一點的返回動畫
+                curve: 1.1,
+                easing: function (t) {
+                    return 1 - Math.pow(1 - t, 2); // ease-out quadratic，更輕快的感覺
+                }
+            });
+
+            // 清除儲存的視圖狀態
+            previousView = null;
+
+            // 隱藏返回按鈕
+            const returnBtn = document.getElementById('returnViewBtn');
+            if (returnBtn) {
+                returnBtn.style.display = 'none';
+            }
+
+            console.log('✅ 返回視圖操作完成');
+        }
+
+        // 重置地圖視圖
+        function resetMapView() {
+            if (!map) return;
+
+            console.log('🌍 返回全球視圖');
+
+            // 關閉所有彈窗
+            const popups = document.querySelectorAll('.mapboxgl-popup');
+            popups.forEach(popup => popup.remove());
+
+            // 清除之前視圖狀態
+            previousView = null;
+
+            // 隱藏返回按鈕
+            const returnBtn = document.getElementById('returnViewBtn');
+            if (returnBtn) {
+                returnBtn.style.display = 'none';
+            }
+
+            map.flyTo({
+                center: [20, 20], // 全球中心點
+                zoom: 2,
+                pitch: 0,
+                bearing: 0,
+                duration: 2000,
+                curve: 1.5, // 更大的彎曲度讓飛行更優雅
+                easing: function (t) {
+                    return 1 - Math.pow(1 - t, 3); // ease-out cubic
+                }
+            });
+        }
+
+        // 切換全螢幕模式
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // 切換統計面板
+        function toggleStatsPanel() {
+            const panel = document.getElementById('statsPanel');
+            const icon = document.getElementById('toggleIcon');
+
+            statsCollapsed = !statsCollapsed;
+
+            if (statsCollapsed) {
+                panel.classList.add('collapsed');
+                icon.textContent = '▶';
+            } else {
+                panel.classList.remove('collapsed');
+                icon.textContent = '▼';
+                updateStats();
+            }
+        }
+
+        // 更新統計資訊
+        function updateStats() {
+            if (!map) return;
+
+            const totalPopulation = CITY_DATA.reduce((sum, city) => sum + city.population, 0);
+            const avgPopulation = totalPopulation / CITY_DATA.length;
+            const largestCity = CITY_DATA.reduce((max, city) =>
+                city.population > max.population ? city : max
+            );
+
+            // 更新統計數據
+            document.getElementById('cityCount').textContent = CITY_DATA.length;
+            document.getElementById('totalPopulation').textContent = (totalPopulation / 1000000).toFixed(1) + 'M';
+            document.getElementById('avgPopulation').textContent = (avgPopulation / 1000000).toFixed(1) + 'M';
+            document.getElementById('largestCity').textContent = getLocalizedCityName(largestCity);
+            document.getElementById('currentZoom').textContent = map.getZoom().toFixed(1);
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+        }
+
+        // 顯示載入指示器
+        function showLoading(show, message = '正在載入地圖...') {
+            const indicator = document.getElementById('loadingIndicator');
+            if (show) {
+                indicator.querySelector('div:last-child').textContent = message;
+                indicator.style.display = 'block';
+            } else {
+                indicator.style.display = 'none';
+            }
+        }
+
+        // 頁面載入完成時初始化地圖
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('🚀 正在初始化互動式城市人口地圖系統...');
+            initializeMap();
+        });
+
+        // 響應式處理
+        window.addEventListener('resize', function () {
+            if (map) {
+                map.resize();
+            }
+        });
+    </script>
+</body>
+
+</html>
