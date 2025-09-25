@@ -139,15 +139,108 @@
         }
 
         .stats-panel {
-            background: #f8f9fa;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-left: 4px solid #28a745;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: relative;
+        }
+
+        .stats-panel:hover {
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .panel-header {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            user-select: none;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-header:hover {
+            background: linear-gradient(135deg, #218838 0%, #1e8a7a 100%);
+        }
+
+        .panel-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .panel-header:hover::before {
+            left: 100%;
+        }
+
+        .panel-title {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+            position: relative;
+            z-index: 1;
+        }
+
+        .toggle-icon {
+            font-size: 1.5rem;
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: relative;
+            z-index: 1;
+        }
+
+        .collapsed .toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        .panel-content {
+            transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+            overflow: hidden;
+            max-height: 500px;
+            opacity: 1;
+        }
+
+        .collapsed .panel-content {
+            max-height: 0 !important;
+            opacity: 0;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
         }
 
         .stat-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid #e9ecef;
+            padding: 0.8rem 1.5rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            animation: fadeInUp 0.6s ease forwards;
+            opacity: 0;
+        }
+
+        .stat-item:nth-child(1) { animation-delay: 0.1s; }
+        .stat-item:nth-child(2) { animation-delay: 0.2s; }
+        .stat-item:nth-child(3) { animation-delay: 0.3s; }
+        .stat-item:nth-child(4) { animation-delay: 0.4s; }
+        .stat-item:nth-child(5) { animation-delay: 0.5s; }
+        .stat-item:nth-child(6) { animation-delay: 0.6s; }
+
+        .stat-item:hover {
+            background-color: rgba(40, 167, 69, 0.05);
+            transform: translateX(5px);
+            border-radius: 8px;
         }
 
         .stat-item:last-child {
@@ -155,8 +248,156 @@
         }
 
         .stat-label {
-            color: #666;
-            font-size: 0.85rem;
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.95rem;
+        }
+
+        .stat-value {
+            font-weight: 700;
+            color: #28a745;
+            background: rgba(40, 167, 69, 0.1);
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .stat-value-updating {
+            animation: pulse 0.8s ease-in-out;
+            background: rgba(40, 167, 69, 0.2);
+            border-color: #28a745;
+        }
+
+        .auto-collapse-timer {
+            position: absolute;
+            top: 10px;
+            right: 60px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #28a745;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+            display: none;
+        }
+
+        .update-indicator {
+            position: absolute;
+            bottom: 10px;
+            right: 15px;
+            background: rgba(40, 167, 69, 0.1);
+            color: #28a745;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            display: none;
+        }
+
+        /* 動畫關鍵幀 */
+        @keyframes slideDown {
+            from {
+                max-height: 0;
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                max-height: 500px;
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                max-height: 500px;
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                max-height: 0;
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+        }
+
+        @keyframes pulse {
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.4);
+            }
+            50% { 
+                transform: scale(1.05);
+                box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 控制面板樣式 */
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .control-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            background: white;
+            color: #495057;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .control-group select:focus {
+            border-color: #28a745;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+        }
+
+        .control-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            background: linear-gradient(135deg, #218838 0%, #1e8a7a 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+
+        .control-btn:active {
+            transform: translateY(0);
         }
 
         .stat-value {
@@ -323,32 +564,69 @@
                     </div>
                 </div>
 
-                <!-- 統計資訊 -->
-                <div class="panel stats-panel">
-                    <h3>📈 地圖統計</h3>
-                    <div class="stat-item">
-                        <span class="stat-label">當前縮放級別</span>
-                        <span class="stat-value" id="currentZoom">-</span>
+                <!-- 可收納統計面板 -->
+                <div class="panel stats-panel" id="collapsible-panel">
+                    <div class="panel-header" id="stats-panel-header" onclick="toggleStatsPanel()">
+                        <h3 class="panel-title">� 實時地圖統計</h3>
+                        <span class="toggle-icon" id="toggle-icon">▼</span>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-label">中心座標</span>
-                        <span class="stat-value" id="centerCoords">-</span>
+                    
+                    <div class="panel-content" id="stats-panel-content" style="padding: 1rem 0;">
+                        <div class="stat-item">
+                            <span class="stat-label">🔍 當前縮放級別</span>
+                            <span class="stat-value" id="currentZoom">載入中...</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">📍 中心座標</span>
+                            <span class="stat-value" id="centerCoords">載入中...</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">📊 載入的數據點</span>
+                            <span class="stat-value" id="dataPoints">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">🎨 地圖樣式</span>
+                            <span class="stat-value" id="currentStyle">載入中...</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">🌐 標籤語言</span>
+                            <span class="stat-value" id="currentLabelLanguage">中文</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">💎 數據點樣式</span>
+                            <span class="stat-value" id="currentPointStyle">依數據大小</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">⏰ 最後更新</span>
+                            <span class="stat-value" id="lastUpdate">載入中...</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">🔄 更新次數</span>
+                            <span class="stat-value" id="updateCounter">0</span>
+                        </div>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-label">載入的數據點</span>
-                        <span class="stat-value" id="dataPoints">0</span>
+                    
+                    <div class="auto-collapse-timer" id="auto-collapse-timer">⏰ 5秒後自動收納</div>
+                    <div class="update-indicator" id="update-indicator">更新中...</div>
+                </div>
+
+                <!-- 控制設定面板 -->
+                <div class="panel">
+                    <h3>⚙️ 收納設定</h3>
+                    <div class="control-group">
+                        <label for="auto-collapse-select">自動收納時間:</label>
+                        <select id="auto-collapse-select" onchange="updateAutoCollapseTime()">
+                            <option value="0">關閉自動收納</option>
+                            <option value="3">3秒後收納</option>
+                            <option value="5" selected>5秒後收納</option>
+                            <option value="8">8秒後收納</option>
+                            <option value="10">10秒後收納</option>
+                        </select>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-label">地圖樣式</span>
-                        <span class="stat-value" id="currentStyle">街道地圖</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">標籤語言</span>
-                        <span class="stat-value" id="currentLabelLanguage">中文</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">數據點樣式</span>
-                        <span class="stat-value" id="currentPointStyle">依數據大小</span>
+                    <div class="control-group">
+                        <button onclick="refreshStats()" class="control-btn">
+                            🔄 手動刷新統計
+                        </button>
                     </div>
                 </div>
             </aside>
@@ -904,29 +1182,35 @@
             showSuccess('GeoJSON 檔案已下載');
         }
 
-        // 更新地圖統計資訊
+        // 更新地圖統計資訊（整合版本）
         function updateMapStats() {
             if (!map) return;
 
             try {
                 const center = map.getCenter();
                 const zoom = map.getZoom();
+                const currentTime = new Date().toLocaleTimeString('zh-TW');
 
+                // 更新縮放級別
                 const zoomElement = document.getElementById('currentZoom');
                 if (zoomElement && typeof zoom === 'number') {
-                    zoomElement.textContent = zoom.toFixed(2);
+                    zoomElement.textContent = zoom.toFixed(2) + '°';
                 }
 
+                // 更新中心座標
                 const centerElement = document.getElementById('centerCoords');
                 if (centerElement && center) {
                     centerElement.textContent = `${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}`;
                 }
 
+                // 更新數據點數量
                 const dataPointElement = document.getElementById('dataPoints');
                 if (dataPointElement) {
-                    dataPointElement.textContent = currentCityGeoJSON ? currentCityGeoJSON.features.length : '0';
+                    const count = currentCityGeoJSON ? currentCityGeoJSON.features.length : 0;
+                    dataPointElement.textContent = count.toString();
                 }
 
+                // 更新地圖樣式
                 const styleSelect = document.getElementById('mapStyle');
                 if (styleSelect && styleSelect.selectedIndex >= 0) {
                     const selectedOption = styleSelect.options[styleSelect.selectedIndex];
@@ -936,14 +1220,28 @@
                     }
                 }
 
+                // 更新標籤語言
                 const currentLabelElement = document.getElementById('currentLabelLanguage');
                 if (currentLabelElement) {
                     currentLabelElement.textContent = LANGUAGE_DISPLAY_NAMES[currentLanguage];
                 }
 
+                // 更新點樣式
                 const pointStyleElement = document.getElementById('currentPointStyle');
                 if (pointStyleElement) {
                     pointStyleElement.textContent = POINT_STYLE_DISPLAY_NAMES[pointStyleMode] || POINT_STYLE_DISPLAY_NAMES.scaled;
+                }
+
+                // 更新最後更新時間
+                const lastUpdateElement = document.getElementById('lastUpdate');
+                if (lastUpdateElement) {
+                    lastUpdateElement.textContent = currentTime;
+                }
+
+                // 更新更新次數
+                const updateCounterElement = document.getElementById('updateCounter');
+                if (updateCounterElement) {
+                    updateCounterElement.textContent = updateCounter.toString();
                 }
             } catch (error) {
                 console.warn('⚠️ 無法更新統計資訊', error);
@@ -1002,6 +1300,179 @@
             }
             initializeMap();
         });
+
+        // 可收納統計面板功能
+        let isPanelCollapsed = false;
+        let autoCollapseTimeout = null;
+        let autoCollapseTime = 5000; // 5秒
+        let updateCounter = 0;
+
+        // 切換統計面板
+        function toggleStatsPanel() {
+            const panel = document.getElementById('collapsible-panel');
+            const content = document.getElementById('stats-panel-content');
+            const icon = document.getElementById('toggle-icon');
+            const timer = document.getElementById('auto-collapse-timer');
+            const indicator = document.getElementById('update-indicator');
+
+            isPanelCollapsed = !isPanelCollapsed;
+
+            if (isPanelCollapsed) {
+                // 收納狀態
+                panel.classList.add('collapsed');
+                icon.textContent = '▶';
+                timer.style.display = 'none';
+                indicator.style.display = 'none';
+                clearAutoCollapseTimer();
+            } else {
+                // 展開狀態
+                panel.classList.remove('collapsed');
+                icon.textContent = '▼';
+                indicator.style.display = 'block';
+                
+                // 刷新統計數據
+                refreshStats();
+                
+                // 啟動自動收納
+                if (autoCollapseTime > 0) {
+                    startAutoCollapseTimer();
+                }
+            }
+        }
+
+        // 啟動自動收納計時器
+        function startAutoCollapseTimer() {
+            const timer = document.getElementById('auto-collapse-timer');
+            
+            if (autoCollapseTime <= 0) return;
+            
+            timer.style.display = 'block';
+            
+            let remaining = autoCollapseTime / 1000;
+            timer.textContent = `⏰ ${remaining}秒後自動收納`;
+            
+            // 倒計時顯示
+            const countdown = setInterval(() => {
+                remaining--;
+                if (remaining > 0) {
+                    timer.textContent = `⏰ ${remaining}秒後自動收納`;
+                } else {
+                    clearInterval(countdown);
+                }
+            }, 1000);
+            
+            // 自動收納
+            autoCollapseTimeout = setTimeout(() => {
+                if (!isPanelCollapsed) {
+                    toggleStatsPanel();
+                }
+                clearInterval(countdown);
+            }, autoCollapseTime);
+        }
+
+        // 清除自動收納計時器
+        function clearAutoCollapseTimer() {
+            if (autoCollapseTimeout) {
+                clearTimeout(autoCollapseTimeout);
+                autoCollapseTimeout = null;
+            }
+        }
+
+        // 更新自動收納時間
+        function updateAutoCollapseTime() {
+            const select = document.getElementById('auto-collapse-select');
+            autoCollapseTime = parseInt(select.value) * 1000;
+            
+            // 如果面板是展開的且設定了自動收納，重新啟動計時器
+            if (!isPanelCollapsed && autoCollapseTime > 0) {
+                clearAutoCollapseTimer();
+                startAutoCollapseTimer();
+            } else if (autoCollapseTime === 0) {
+                clearAutoCollapseTimer();
+                document.getElementById('auto-collapse-timer').style.display = 'none';
+            }
+        }
+
+        // 手動刷新統計
+        function refreshStats() {
+            updateCounter++;
+            updateStatistics();
+            
+            // 顯示更新動畫
+            const statValues = document.querySelectorAll('.stat-value');
+            statValues.forEach(value => {
+                value.classList.add('stat-value-updating');
+                setTimeout(() => {
+                    value.classList.remove('stat-value-updating');
+                }, 800);
+            });
+        }
+
+        // 更新統計資訊（增強版）
+        function updateStatistics() {
+            if (!map) return;
+
+            const center = map.getCenter();
+            const zoom = map.getZoom();
+            const style = map.getStyle();
+            const currentTime = new Date().toLocaleTimeString('zh-TW');
+
+            // 更新各項統計
+            document.getElementById('currentZoom').textContent = zoom.toFixed(2) + '°';
+            document.getElementById('centerCoords').textContent = 
+                `${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}`;
+            
+            // 計算數據點數量
+            let dataPointsCount = 0;
+            if (currentCityGeoJSON && currentCityGeoJSON.features) {
+                dataPointsCount = currentCityGeoJSON.features.length;
+            }
+            document.getElementById('dataPoints').textContent = dataPointsCount.toString();
+            
+            // 更新地圖樣式名稱
+            const styleSelect = document.getElementById('mapStyle');
+            const styleName = styleSelect ? styleSelect.options[styleSelect.selectedIndex].text : '未知';
+            document.getElementById('currentStyle').textContent = styleName;
+            
+            // 更新最後更新時間
+            document.getElementById('lastUpdate').textContent = currentTime;
+            
+            // 更新更新次數
+            document.getElementById('updateCounter').textContent = updateCounter.toString();
+        }
+
+        // 滑鼠懸停暫停自動收納
+        document.addEventListener('DOMContentLoaded', function() {
+            const panel = document.getElementById('collapsible-panel');
+            
+            panel.addEventListener('mouseenter', function() {
+                clearAutoCollapseTimer();
+                const timer = document.getElementById('auto-collapse-timer');
+                if (timer.style.display !== 'none') {
+                    timer.textContent = '⏸️ 懸停暫停收納';
+                }
+            });
+            
+            panel.addEventListener('mouseleave', function() {
+                if (!isPanelCollapsed && autoCollapseTime > 0) {
+                    startAutoCollapseTimer();
+                }
+            });
+        });
+
+        // 鍵盤快捷鍵
+        document.addEventListener('keydown', function(event) {
+            // 按 S 鍵切換統計面板
+            if (event.key === 's' || event.key === 'S') {
+                event.preventDefault();
+                toggleStatsPanel();
+            }
+        });
+
+        // 統計數據更新統一接口
+        function updateStatistics() {
+            updateMapStats();
+        }
 
         // 響應式處理
         window.addEventListener('resize', function () {
