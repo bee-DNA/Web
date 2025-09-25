@@ -167,6 +167,14 @@
             box-shadow: none;
         }
 
+        button.secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        }
+
+        button.secondary:hover {
+            box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+        }
+
         .map-container {
             flex: 1;
             position: relative;
@@ -496,6 +504,25 @@
                             <option value="mapbox://styles/mapbox/navigation-day-v1">導航日間</option>
                             <option value="mapbox://styles/mapbox/navigation-night-v1">導航夜間</option>
                         </select>
+                    </div>
+                </div>
+
+                <!-- 3D視角控制 -->
+                <div class="panel">
+                    <h3>🏗️ 3D 視角</h3>
+                    <div class="control-group">
+                        <label for="view3D">視角模式</label>
+                        <select id="view3D" onchange="change3DView(this.value)">
+                            <option value="2d">平面視角 (2D)</option>
+                            <option value="3d-low">輕微傾斜 (3D)</option>
+                            <option value="3d-medium">中度傾斜 (3D)</option>
+                            <option value="3d-high">高度傾斜 (3D)</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <button onclick="toggle3DBuildings()" id="buildingsToggle" class="btn secondary">
+                            🏢 顯示建築物
+                        </button>
                     </div>
                 </div>
 
@@ -955,7 +982,7 @@
                     // 添加額外的點擊監聽，確保關閉按鈕正常工作
                     const closeButton = document.querySelector('.mapboxgl-popup-close-button');
                     if (closeButton) {
-                        closeButton.addEventListener('click', function(e) {
+                        closeButton.addEventListener('click', function (e) {
                             e.preventDefault();
                             e.stopPropagation();
                             console.log('🔙 關閉按鈕直接點擊事件');
@@ -1197,6 +1224,161 @@
                 document.documentElement.requestFullscreen();
             } else {
                 document.exitFullscreen();
+            }
+        }
+
+        // 全局變量追蹤 3D 狀態
+        let buildingsLayerVisible = false;
+
+        // 切換 3D 視角
+        function change3DView(viewMode) {
+            if (!map) return;
+
+            console.log('🏗️ 切換 3D 視角:', viewMode);
+
+            let pitch = 0;
+            let bearing = map.getBearing(); // 保持當前方向
+
+            switch (viewMode) {
+                case '2d':
+                    pitch = 0;
+                    console.log('📐 切換到平面視角');
+                    break;
+                case '3d-low':
+                    pitch = 30;
+                    console.log('📐 切換到輕微傾斜視角');
+                    break;
+                case '3d-medium':
+                    pitch = 45;
+                    console.log('📐 切換到中度傾斜視角');
+                    break;
+                case '3d-high':
+                    pitch = 60;
+                    console.log('📐 切換到高度傾斜視角');
+                    break;
+                default:
+                    pitch = 0;
+            }
+
+            // 平滑過渡到新的視角
+            map.flyTo({
+                pitch: pitch,
+                bearing: bearing,
+                duration: 1500,
+                easing: function (t) {
+                    return 1 - Math.pow(1 - t, 2); // ease-out quadratic
+                }
+            });
+
+            // 如果是 3D 視角，自動顯示建築物提示
+            if (pitch > 0 && !buildingsLayerVisible) {
+                setTimeout(() => {
+                    console.log('💡 提示: 您可以開啟建築物圖層以獲得更好的 3D 效果');
+                }, 1000);
+            }
+        }
+
+        // 切換建築物圖層
+        function toggle3DBuildings() {
+            if (!map) return;
+
+            const layerId = '3d-buildings';
+            const button = document.getElementById('buildingsToggle');
+
+            try {
+                if (buildingsLayerVisible) {
+                    // 隱藏建築物
+                    if (map.getLayer(layerId)) {
+                        map.setLayoutProperty(layerId, 'visibility', 'none');
+                    }
+                    buildingsLayerVisible = false;
+                    button.textContent = '🏢 顯示建築物';
+                    button.classList.remove('active');
+                    console.log('🏢 已隱藏建築物圖層');
+                } else {
+                    // 顯示建築物
+                    if (!map.getLayer(layerId)) {
+                        // 如果圖層不存在，添加它
+                        add3DBuildingsLayer();
+                    } else {
+                        map.setLayoutProperty(layerId, 'visibility', 'visible');
+                    }
+                    buildingsLayerVisible = true;
+                    button.textContent = '🏗️ 隱藏建築物';
+                    button.classList.add('active');
+                    console.log('🏢 已顯示建築物圖層');
+
+                    // 如果當前是 2D 視角，建議切換到 3D
+                    if (map.getPitch() === 0) {
+                        console.log('💡 建議: 切換到 3D 視角以獲得更好的建築物效果');
+                    }
+                }
+            } catch (error) {
+                console.error('❌ 切換建築物圖層時出錯:', error);
+            }
+        }
+
+        // 添加 3D 建築物圖層
+        function add3DBuildingsLayer() {
+            if (!map) return;
+
+            // 等待地圖樣式完全載入
+            if (!map.isStyleLoaded()) {
+                map.once('styledata', add3DBuildingsLayer);
+                return;
+            }
+
+            try {
+                // 檢查是否已有建築物數據源
+                if (!map.getSource('composite')) {
+                    console.warn('⚠️ 當前地圖樣式不支援建築物圖層');
+                    return;
+                }
+
+                const layerId = '3d-buildings';
+
+                // 如果圖層已存在，移除它
+                if (map.getLayer(layerId)) {
+                    map.removeLayer(layerId);
+                }
+
+                // 添加 3D 建築物圖層
+                map.addLayer({
+                    id: layerId,
+                    source: 'composite',
+                    'source-layer': 'building',
+                    filter: ['==', 'extrude', 'true'],
+                    type: 'fill-extrusion',
+                    minzoom: 15,
+                    paint: {
+                        'fill-extrusion-color': [
+                            'case',
+                            ['>', ['get', 'height'], 100], '#667eea',  // 高樓 - 藍色
+                            ['>', ['get', 'height'], 50], '#764ba2',   // 中樓 - 紫色
+                            '#95a5a6'  // 低樓 - 灰色
+                        ],
+                        'fill-extrusion-height': [
+                            'interpolate',
+                            ['linear'],
+                            ['zoom'],
+                            15, 0,
+                            15.05, ['get', 'height']
+                        ],
+                        'fill-extrusion-base': [
+                            'interpolate',
+                            ['linear'],
+                            ['zoom'],
+                            15, 0,
+                            15.05, ['get', 'min_height']
+                        ],
+                        'fill-extrusion-opacity': 0.8
+                    }
+                });
+
+                console.log('🏗️ 3D 建築物圖層已添加');
+            } catch (error) {
+                console.error('❌ 添加建築物圖層失敗:', error);
+                console.warn('⚠️ 當前地圖樣式可能不支援 3D 建築物');
             }
         }
 
