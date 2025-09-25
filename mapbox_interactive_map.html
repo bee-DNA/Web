@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>互動式 Mapbox 地圖系統</title>
-    
+
     <!-- Mapbox GL JS -->
     <script src='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js'></script>
     <link href='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css' rel='stylesheet' />
-    
+
     <!-- 樣式 -->
     <style>
         * {
@@ -32,7 +33,7 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             padding: 1rem 2rem;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
 
         .header h1 {
@@ -55,7 +56,7 @@
         .sidebar {
             width: 320px;
             background: white;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
             overflow-y: auto;
             z-index: 100;
         }
@@ -84,7 +85,9 @@
             font-size: 0.9rem;
         }
 
-        select, button, input {
+        select,
+        button,
+        input {
             width: 100%;
             padding: 0.75rem;
             border: 2px solid #e0e0e0;
@@ -93,7 +96,8 @@
             transition: all 0.3s ease;
         }
 
-        select:focus, input:focus {
+        select:focus,
+        input:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -169,7 +173,7 @@
             background: white;
             padding: 2rem;
             border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
             z-index: 1000;
         }
 
@@ -184,8 +188,13 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .error-message {
@@ -211,17 +220,17 @@
             .main-content {
                 flex-direction: column;
             }
-            
+
             .sidebar {
                 width: 100%;
                 height: auto;
                 max-height: 50vh;
             }
-            
+
             .header h1 {
                 font-size: 1.5rem;
             }
-            
+
             .header {
                 padding: 1rem;
             }
@@ -230,15 +239,25 @@
         /* 地圖控件樣式 */
         .mapboxgl-popup-content {
             border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            padding: 1.5rem 1.25rem 1.25rem;
         }
 
         .mapboxgl-popup-close-button {
-            font-size: 18px;
+            font-size: 16px;
             padding: 4px;
+            top: 6px;
+            right: 6px;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            line-height: 18px;
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <!-- 標題區域 -->
@@ -265,6 +284,21 @@
                             <option value="mapbox://styles/mapbox/satellite-streets-v12">衛星街道</option>
                             <option value="mapbox://styles/mapbox/navigation-day-v1">導航日間</option>
                             <option value="mapbox://styles/mapbox/navigation-night-v1">導航夜間</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="labelLanguage">標籤語言</label>
+                        <select id="labelLanguage" onchange="changeLabelLanguage(this.value)">
+                            <option value="zh">中文</option>
+                            <option value="en">English</option>
+                            <option value="default">預設 (多語)</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="pointStyleMode">數據點樣式</label>
+                        <select id="pointStyleMode" onchange="changePointStyleMode(this.value)">
+                            <option value="scaled">依數據大小</option>
+                            <option value="fixed">固定大小</option>
                         </select>
                     </div>
                 </div>
@@ -308,15 +342,23 @@
                         <span class="stat-label">地圖樣式</span>
                         <span class="stat-value" id="currentStyle">街道地圖</span>
                     </div>
+                    <div class="stat-item">
+                        <span class="stat-label">標籤語言</span>
+                        <span class="stat-value" id="currentLabelLanguage">中文</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">數據點樣式</span>
+                        <span class="stat-value" id="currentPointStyle">依數據大小</span>
+                    </div>
                 </div>
             </aside>
 
             <!-- 地圖容器 -->
             <main class="map-container">
                 <div id="map"></div>
-                
+
                 <!-- 載入指示器 -->
-                <div id="loadingIndicator" class="loading" style="display: none;">
+                <div id="loadingIndicator" class="loading" style="display: none;" data-lock="false">
                     <div class="spinner"></div>
                     <div>正在載入地圖...</div>
                 </div>
@@ -329,31 +371,250 @@
         // 全域變數
         let map;
         let isDataLoaded = false;
+        let currentLanguage = 'zh';
+        let pointStyleMode = 'scaled';
+        let currentCityGeoJSON = null;
+        let isStatsUpdateScheduled = false;
+
+        const LABEL_LAYER_IDS = [
+            'country-label', 'country-label-sm', 'state-label',
+            'settlement-label', 'settlement-subdivision-label',
+            'settlement-label-sm', 'settlement-subdivision-label-sm',
+            'airport-label', 'waterway-label', 'poi-label',
+            'road-label', 'road-label-navigation', 'road-label-small'
+        ];
+
+        const CUSTOM_LABEL_LAYER_IDS = new Set(['city-labels']);
+
+        const LANGUAGE_FIELDS = {
+            zh: ['coalesce',
+                ['get', 'name_zh-Hant'],
+                ['get', 'name_zh-Hans'],
+                ['get', 'name_zh'],
+                ['get', 'name'],
+                ['get', 'name_en']
+            ],
+            en: ['coalesce', ['get', 'name_en'], ['get', 'name'], ['get', 'name_zh']],
+            default: ['coalesce', ['get', 'name'], ['get', 'name_en'], ['get', 'name_zh']]
+        };
+
+        const CITY_LANGUAGE_FIELDS = {
+            zh: ['coalesce', ['get', 'name_zh'], ['get', 'name_en'], ['get', 'name']],
+            en: ['coalesce', ['get', 'name_en'], ['get', 'name'], ['get', 'name_zh']],
+            default: ['coalesce', ['get', 'name'], ['get', 'name_en'], ['get', 'name_zh']]
+        };
+
+        const LANGUAGE_DISPLAY_NAMES = {
+            zh: '中文',
+            en: 'English',
+            default: '預設'
+        };
+
+        const POINT_STYLE_DISPLAY_NAMES = {
+            scaled: '依數據大小',
+            fixed: '固定大小'
+        };
+
+        const SCALED_CIRCLE_COLOR_EXPRESSION = [
+            'interpolate',
+            ['linear'],
+            ['get', 'population'],
+            1000000, '#FED976',
+            5000000, '#FD8D3C',
+            10000000, '#E31A1C',
+            20000000, '#800026'
+        ];
 
         // 範例數據
         const sampleData = {
             cities: [
-                { name: '台北', coordinates: [121.5654, 25.0330], value: 2700000 },
-                { name: '東京', coordinates: [139.6917, 35.6895], value: 13929286 },
-                { name: '首爾', coordinates: [126.9780, 37.5665], value: 9733509 },
-                { name: '上海', coordinates: [121.4737, 31.2304], value: 24870895 },
-                { name: '北京', coordinates: [116.4074, 39.9042], value: 21542000 },
-                { name: '新加坡', coordinates: [103.8198, 1.3521], value: 5850342 },
-                { name: '香港', coordinates: [114.1694, 22.3193], value: 7496981 },
-                { name: '馬尼拉', coordinates: [120.9842, 14.5995], value: 13482462 },
-                { name: '雅加達', coordinates: [106.8650, -6.1751], value: 10562088 },
-                { name: '曼谷', coordinates: [100.5018, 13.7563], value: 10156000 }
+                { name_zh: '台北', name_en: 'Taipei', coordinates: [121.5654, 25.0330], value: 2700000 },
+                { name_zh: '東京', name_en: 'Tokyo', coordinates: [139.6917, 35.6895], value: 13929286 },
+                { name_zh: '首爾', name_en: 'Seoul', coordinates: [126.9780, 37.5665], value: 9733509 },
+                { name_zh: '上海', name_en: 'Shanghai', coordinates: [121.4737, 31.2304], value: 24870895 },
+                { name_zh: '北京', name_en: 'Beijing', coordinates: [116.4074, 39.9042], value: 21542000 },
+                { name_zh: '新加坡', name_en: 'Singapore', coordinates: [103.8198, 1.3521], value: 5850342 },
+                { name_zh: '香港', name_en: 'Hong Kong', coordinates: [114.1694, 22.3193], value: 7496981 },
+                { name_zh: '馬尼拉', name_en: 'Manila', coordinates: [120.9842, 14.5995], value: 13482462 },
+                { name_zh: '雅加達', name_en: 'Jakarta', coordinates: [106.8650, -6.1751], value: 10562088 },
+                { name_zh: '曼谷', name_en: 'Bangkok', coordinates: [100.5018, 13.7563], value: 10156000 }
             ]
         };
+
+        function getCityLabelExpression(language) {
+            return CITY_LANGUAGE_FIELDS[language] || CITY_LANGUAGE_FIELDS.default;
+        }
+
+        function getLocalizedCityName(properties, language = currentLanguage) {
+            if (!properties) return '未知城市';
+
+            const languageOrder = {
+                zh: ['name_zh', 'name', 'name_en'],
+                en: ['name_en', 'name', 'name_zh'],
+                default: ['name', 'name_en', 'name_zh']
+            };
+
+            const keys = languageOrder[language] || languageOrder.default;
+            for (const key of keys) {
+                if (properties[key]) {
+                    return properties[key];
+                }
+            }
+
+            return properties.name || properties.name_zh || properties.name_en || '未知城市';
+        }
+
+        function onCityLayerClick(e) {
+            if (!map || !e.features || !e.features.length) return;
+
+            const feature = e.features[0];
+            const coordinates = feature.geometry.coordinates.slice();
+            const properties = feature.properties || {};
+
+            const population = Number(properties.population ?? 0);
+            const displayName = getLocalizedCityName(properties);
+
+            const popupContent = `
+                <div style="padding: 10px;">
+                    <h3 style="margin: 0 0 10px 0; color: #333;">${displayName}</h3>
+                    <p style="margin: 0; color: #666;">
+                        <strong>人口：</strong>${population ? population.toLocaleString() : '—'} 人<br>
+                        <strong>座標：</strong>${coordinates[1].toFixed(4)}, ${coordinates[0].toFixed(4)}
+                    </p>
+                </div>
+            `;
+
+            new mapboxgl.Popup()
+                .setLngLat(coordinates)
+                .setHTML(popupContent)
+                .addTo(map);
+        }
+
+        function onCityLayerEnter() {
+            if (!map) return;
+            map.getCanvas().style.cursor = 'pointer';
+        }
+
+        function onCityLayerLeave() {
+            if (!map) return;
+            map.getCanvas().style.cursor = '';
+        }
+
+        function renderCityData() {
+            if (!map || !currentCityGeoJSON) return;
+
+            if (map.getLayer('city-labels')) {
+                map.removeLayer('city-labels');
+            }
+            if (map.getLayer('cities')) {
+                map.removeLayer('cities');
+            }
+            if (map.getSource('cities')) {
+                map.removeSource('cities');
+            }
+
+            map.addSource('cities', {
+                type: 'geojson',
+                data: currentCityGeoJSON
+            });
+
+            map.addLayer({
+                id: 'cities',
+                type: 'circle',
+                source: 'cities',
+                paint: {
+                    'circle-radius': ['get', 'size'],
+                    'circle-color': SCALED_CIRCLE_COLOR_EXPRESSION,
+                    'circle-opacity': 0.8,
+                    'circle-stroke-width': 2,
+                    'circle-stroke-color': '#fff'
+                }
+            });
+
+            map.addLayer({
+                id: 'city-labels',
+                type: 'symbol',
+                source: 'cities',
+                layout: {
+                    'text-field': getCityLabelExpression(currentLanguage),
+                    'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+                    'text-offset': [0, 1.5],
+                    'text-anchor': 'top',
+                    'text-size': 12
+                },
+                paint: {
+                    'text-color': '#333',
+                    'text-halo-color': '#fff',
+                    'text-halo-width': 1
+                }
+            });
+
+            map.off('click', 'cities', onCityLayerClick);
+            map.off('mouseenter', 'cities', onCityLayerEnter);
+            map.off('mouseleave', 'cities', onCityLayerLeave);
+
+            map.on('click', 'cities', onCityLayerClick);
+            map.on('mouseenter', 'cities', onCityLayerEnter);
+            map.on('mouseleave', 'cities', onCityLayerLeave);
+
+            applyPointStyleMode();
+            applyCityLabelLanguage();
+            updateMapStats();
+        }
+
+        function applyPointStyleMode() {
+            if (!map || !map.getLayer('cities')) return;
+
+            if (pointStyleMode === 'fixed') {
+                map.setPaintProperty('cities', 'circle-radius', 10);
+                map.setPaintProperty('cities', 'circle-color', '#3b82f6');
+                map.setPaintProperty('cities', 'circle-opacity', 0.75);
+            } else {
+                map.setPaintProperty('cities', 'circle-radius', ['get', 'size']);
+                map.setPaintProperty('cities', 'circle-color', SCALED_CIRCLE_COLOR_EXPRESSION);
+                map.setPaintProperty('cities', 'circle-opacity', 0.8);
+            }
+
+            map.setPaintProperty('cities', 'circle-stroke-width', 2);
+            map.setPaintProperty('cities', 'circle-stroke-color', '#fff');
+        }
+
+        function applyCityLabelLanguage(language = currentLanguage) {
+            if (!map || !map.getLayer('city-labels')) return;
+
+            const expression = getCityLabelExpression(language);
+            try {
+                map.setLayoutProperty('city-labels', 'text-field', expression);
+            } catch (error) {
+                console.warn('⚠️  無法更新城市標籤語言', error);
+            }
+        }
+
+        function changePointStyleMode(mode) {
+            if (!POINT_STYLE_DISPLAY_NAMES[mode]) {
+                mode = 'scaled';
+            }
+
+            pointStyleMode = mode;
+            applyPointStyleMode();
+
+            const pointStyleSelect = document.getElementById('pointStyleMode');
+            if (pointStyleSelect && pointStyleSelect.value !== mode) {
+                pointStyleSelect.value = mode;
+            }
+
+            updateMapStats();
+            console.log('🎛️ 數據點樣式切換為:', POINT_STYLE_DISPLAY_NAMES[pointStyleMode]);
+        }
 
         // 初始化地圖
         function initializeMap() {
             // 顯示載入指示器
-            showLoading(true);
-            
+            showLoading(true, '正在載入地圖...', true);
+
             // 設定 Mapbox Access Token
             mapboxgl.accessToken = 'pk.eyJ1IjoiYmVlLWRuYSIsImEiOiJjbWZ5MTlhOTkwZnF3MmxvbjkwN2RtM2Z4In0.yFiY2MNpWqaDINuLaz1e0w';
-            
+
             // 建立地圖實例
             map = new mapboxgl.Map({
                 container: 'map',
@@ -364,10 +625,21 @@
                 bearing: 0
             });
 
+            const hideLoadingIfUnlocked = () => {
+                const indicator = document.getElementById('loadingIndicator');
+                if (!indicator) return;
+                const isLocked = indicator.dataset.lock === 'true';
+                if (!isLocked && indicator.style.display !== 'none') {
+                    showLoading(false);
+                }
+            };
+
+            map.on('idle', hideLoadingIfUnlocked);
+
             // 地圖載入完成事件
-            map.on('load', function() {
+            map.on('load', function () {
                 console.log('🗺️ 地圖載入完成');
-                
+
                 // 添加控件
                 map.addControl(new mapboxgl.NavigationControl());
                 map.addControl(new mapboxgl.FullscreenControl());
@@ -375,20 +647,30 @@
                     maxWidth: 100,
                     unit: 'metric'
                 }));
-                
+
+                applyLabelLanguage(currentLanguage);
+
                 // 隱藏載入指示器
                 showLoading(false);
-                
+
                 // 更新統計資訊
                 updateMapStats();
-                
+
                 // 監聽地圖事件
-                map.on('moveend', updateMapStats);
-                map.on('zoomend', updateMapStats);
+                const realtimeEvents = ['move', 'zoom'];
+                realtimeEvents.forEach(eventName => {
+                    map.on(eventName, scheduleStatsUpdate);
+                });
+
+                // 在互動結束時也確保更新一次，以獲得最終精確值
+                const endEvents = ['moveend', 'zoomend', 'pitchend', 'rotateend'];
+                endEvents.forEach(eventName => {
+                    map.on(eventName, updateMapStats);
+                });
             });
 
             // 錯誤處理
-            map.on('error', function(e) {
+            map.on('error', function (e) {
                 console.error('地圖載入錯誤:', e);
                 showError('地圖載入失敗，請檢查網路連線或 API Token');
                 showLoading(false);
@@ -398,34 +680,127 @@
         // 改變地圖樣式
         function changeMapStyle(styleUrl) {
             if (!map) return;
-            
+
+            showLoading(true, '正在切換地圖樣式...', true);
             map.setStyle(styleUrl);
-            
+            map.once('styledata', () => {
+                applyLabelLanguage(currentLanguage);
+                if (currentCityGeoJSON) {
+                    renderCityData();
+                }
+                showLoading(false);
+            });
+
             // 更新樣式名稱顯示
             const styleSelect = document.getElementById('mapStyle');
             const selectedOption = styleSelect.options[styleSelect.selectedIndex];
             document.getElementById('currentStyle').textContent = selectedOption.text;
-            
+
             console.log('🎨 地圖樣式已更改:', selectedOption.text);
+        }
+
+        function applyLabelLanguage(language) {
+            if (!map) return;
+
+            const applyToLayers = () => {
+                const field = LANGUAGE_FIELDS[language] || LANGUAGE_FIELDS.default;
+                const updatedLayerIds = new Set();
+
+                LABEL_LAYER_IDS.forEach(layerId => {
+                    if (map.getLayer(layerId)) {
+                        try {
+                            map.setLayoutProperty(layerId, 'text-field', field);
+                            updatedLayerIds.add(layerId);
+                        } catch (error) {
+                            console.warn(`⚠️  無法更新圖層 ${layerId} 的標籤語言`, error);
+                        }
+                    }
+                });
+
+                const style = map.getStyle();
+                if (style && Array.isArray(style.layers)) {
+                    style.layers.forEach(layer => {
+                        if (!layer || updatedLayerIds.has(layer.id)) return;
+                        if (layer.type !== 'symbol') return;
+                        if (!layer.layout || !layer.layout['text-field']) return;
+                        if (CUSTOM_LABEL_LAYER_IDS.has(layer.id)) return;
+                        if (layer.id && !layer.id.toLowerCase().includes('label')) return;
+
+                        const textField = layer.layout['text-field'];
+                        const textFieldString = typeof textField === 'string'
+                            ? textField
+                            : Array.isArray(textField)
+                                ? JSON.stringify(textField)
+                                : '';
+
+                        if (!textFieldString || !textFieldString.includes('name')) {
+                            return;
+                        }
+
+                        try {
+                            map.setLayoutProperty(layer.id, 'text-field', field);
+                            updatedLayerIds.add(layer.id);
+                        } catch (error) {
+                            console.warn(`⚠️  無法更新圖層 ${layer.id} 的標籤語言`, error);
+                        }
+                    });
+                }
+
+                if (typeof map.setConfig === 'function') {
+                    map.setConfig({
+                        localFontFamily: 'Microsoft JhengHei, PingFang TC, Noto Sans CJK TC, Noto Sans CJK, sans-serif'
+                    });
+                }
+
+                const labelDisplay = LANGUAGE_DISPLAY_NAMES[language] || LANGUAGE_DISPLAY_NAMES.default;
+                const currentLabelElement = document.getElementById('currentLabelLanguage');
+                if (currentLabelElement) {
+                    currentLabelElement.textContent = labelDisplay;
+                }
+            };
+
+            const scheduleIdleRefresh = () => {
+                if (!map) return;
+                map.once('idle', () => {
+                    if (!map) return;
+                    applyToLayers();
+                });
+            };
+
+            if (!map.isStyleLoaded()) {
+                map.once('styledata', () => {
+                    applyToLayers();
+                    scheduleIdleRefresh();
+                    applyCityLabelLanguage(language);
+                });
+                return;
+            }
+
+            applyToLayers();
+            scheduleIdleRefresh();
+            applyCityLabelLanguage(language);
+        }
+
+        function changeLabelLanguage(language) {
+            currentLanguage = language;
+            applyLabelLanguage(language);
+            applyCityLabelLanguage(language);
+            const languageSelect = document.getElementById('labelLanguage');
+            if (languageSelect && languageSelect.value !== language) {
+                languageSelect.value = language;
+            }
+            updateMapStats();
         }
 
         // 載入範例數據
         function loadSampleData() {
             if (!map) return;
-            
-            showLoading(true, '正在載入數據...');
-            
+
+            showLoading(true, '正在載入數據...', true);
+
             // 模擬 API 延遲
             setTimeout(() => {
                 try {
-                    // 移除現有的城市圖層和來源
-                    if (map.getLayer('cities')) {
-                        map.removeLayer('cities');
-                    }
-                    if (map.getSource('cities')) {
-                        map.removeSource('cities');
-                    }
-
                     // 準備 GeoJSON 數據
                     const geojsonData = {
                         type: 'FeatureCollection',
@@ -436,97 +811,25 @@
                                 coordinates: city.coordinates
                             },
                             properties: {
-                                name: city.name,
+                                name: city.name_zh || city.name_en || '',
+                                name_zh: city.name_zh || city.name,
+                                name_en: city.name_en || city.name,
                                 population: city.value,
                                 size: Math.max(city.value / 1000000 * 10, 5) // 基於人口計算點大小
                             }
                         }))
                     };
 
-                    // 添加數據來源
-                    map.addSource('cities', {
-                        type: 'geojson',
-                        data: geojsonData
-                    });
-
-                    // 添加圓圈圖層
-                    map.addLayer({
-                        id: 'cities',
-                        type: 'circle',
-                        source: 'cities',
-                        paint: {
-                            'circle-radius': ['get', 'size'],
-                            'circle-color': [
-                                'interpolate',
-                                ['linear'],
-                                ['get', 'population'],
-                                1000000, '#FED976',
-                                5000000, '#FD8D3C',
-                                10000000, '#E31A1C',
-                                20000000, '#800026'
-                            ],
-                            'circle-opacity': 0.8,
-                            'circle-stroke-width': 2,
-                            'circle-stroke-color': '#fff'
-                        }
-                    });
-
-                    // 添加文字標籤圖層
-                    map.addLayer({
-                        id: 'city-labels',
-                        type: 'symbol',
-                        source: 'cities',
-                        layout: {
-                            'text-field': '{name}',
-                            'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
-                            'text-offset': [0, 1.5],
-                            'text-anchor': 'top',
-                            'text-size': 12
-                        },
-                        paint: {
-                            'text-color': '#333',
-                            'text-halo-color': '#fff',
-                            'text-halo-width': 1
-                        }
-                    });
-
-                    // 添加點擊事件
-                    map.on('click', 'cities', function(e) {
-                        const coordinates = e.features[0].geometry.coordinates.slice();
-                        const properties = e.features[0].properties;
-                        
-                        const popupContent = `
-                            <div style="padding: 10px;">
-                                <h3 style="margin: 0 0 10px 0; color: #333;">${properties.name}</h3>
-                                <p style="margin: 0; color: #666;">
-                                    <strong>人口：</strong>${properties.population.toLocaleString()} 人<br>
-                                    <strong>座標：</strong>${coordinates[1].toFixed(4)}, ${coordinates[0].toFixed(4)}
-                                </p>
-                            </div>
-                        `;
-
-                        new mapboxgl.Popup()
-                            .setLngLat(coordinates)
-                            .setHTML(popupContent)
-                            .addTo(map);
-                    });
-
-                    // 改變游標樣式
-                    map.on('mouseenter', 'cities', function() {
-                        map.getCanvas().style.cursor = 'pointer';
-                    });
-
-                    map.on('mouseleave', 'cities', function() {
-                        map.getCanvas().style.cursor = '';
-                    });
+                    currentCityGeoJSON = geojsonData;
+                    renderCityData();
 
                     isDataLoaded = true;
                     updateMapStats();
                     showLoading(false);
                     showSuccess('數據載入成功！');
-                    
+
                     console.log('📊 數據載入完成');
-                    
+
                 } catch (error) {
                     console.error('數據載入錯誤:', error);
                     showError('數據載入失敗');
@@ -538,7 +841,7 @@
         // 清除所有數據
         function clearAllData() {
             if (!map) return;
-            
+
             try {
                 // 移除圖層
                 if (map.getLayer('city-labels')) {
@@ -551,12 +854,17 @@
                     map.removeSource('cities');
                 }
 
+                map.off('click', 'cities', onCityLayerClick);
+                map.off('mouseenter', 'cities', onCityLayerEnter);
+                map.off('mouseleave', 'cities', onCityLayerLeave);
+
                 isDataLoaded = false;
+                currentCityGeoJSON = null;
                 updateMapStats();
                 showSuccess('所有數據已清除');
-                
+
                 console.log('🗑️ 數據已清除');
-                
+
             } catch (error) {
                 console.error('清除數據錯誤:', error);
                 showError('清除數據失敗');
@@ -565,58 +873,69 @@
 
         // 下載 GeoJSON
         function downloadGeoJSON() {
-            if (!isDataLoaded) {
+            if (!currentCityGeoJSON) {
                 showError('請先載入數據');
                 return;
             }
-            
-            const geojsonData = {
-                type: 'FeatureCollection',
-                features: sampleData.cities.map(city => ({
-                    type: 'Feature',
-                    geometry: {
-                        type: 'Point',
-                        coordinates: city.coordinates
-                    },
-                    properties: {
-                        name: city.name,
-                        population: city.value
-                    }
-                }))
-            };
-            
-            const dataStr = JSON.stringify(geojsonData, null, 2);
-            const dataBlob = new Blob([dataStr], {type: 'application/json'});
-            
+
+            const dataStr = JSON.stringify(currentCityGeoJSON, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+
             const link = document.createElement('a');
             link.href = URL.createObjectURL(dataBlob);
             link.download = 'cities_data.geojson';
             link.click();
-            
+
             showSuccess('GeoJSON 檔案已下載');
         }
 
         // 更新地圖統計資訊
         function updateMapStats() {
             if (!map) return;
-            
+
             const center = map.getCenter();
             const zoom = map.getZoom();
-            
+
             document.getElementById('currentZoom').textContent = zoom.toFixed(2);
-            document.getElementById('centerCoords').textContent = 
+            document.getElementById('centerCoords').textContent =
                 `${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}`;
-            document.getElementById('dataPoints').textContent = 
-                isDataLoaded ? sampleData.cities.length : '0';
+            document.getElementById('dataPoints').textContent =
+                currentCityGeoJSON ? currentCityGeoJSON.features.length : '0';
+
+            const styleSelect = document.getElementById('mapStyle');
+            if (styleSelect) {
+                const selectedOption = styleSelect.options[styleSelect.selectedIndex];
+                document.getElementById('currentStyle').textContent = selectedOption.text;
+            }
+
+            document.getElementById('currentLabelLanguage').textContent = LANGUAGE_DISPLAY_NAMES[currentLanguage];
+
+            const pointStyleElement = document.getElementById('currentPointStyle');
+            if (pointStyleElement) {
+                pointStyleElement.textContent = POINT_STYLE_DISPLAY_NAMES[pointStyleMode] || POINT_STYLE_DISPLAY_NAMES.scaled;
+            }
+        }
+
+        function scheduleStatsUpdate() {
+            if (isStatsUpdateScheduled) return;
+            isStatsUpdateScheduled = true;
+            requestAnimationFrame(() => {
+                updateMapStats();
+                isStatsUpdateScheduled = false;
+            });
         }
 
         // 顯示載入指示器
-        function showLoading(show, message = '正在載入地圖...') {
+        function showLoading(show, message = '正在載入地圖...', lock = false) {
             const indicator = document.getElementById('loadingIndicator');
+            if (!indicator) return;
+
             if (show) {
                 indicator.querySelector('div:last-child').textContent = message;
+                indicator.dataset.lock = lock ? 'true' : 'false';
                 indicator.style.display = 'block';
             } else {
+                indicator.dataset.lock = 'false';
                 indicator.style.display = 'none';
             }
         }
@@ -634,17 +953,26 @@
         }
 
         // 頁面載入完成時初始化地圖
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             console.log('🚀 正在初始化地圖系統...');
+            const languageSelect = document.getElementById('labelLanguage');
+            if (languageSelect) {
+                languageSelect.value = currentLanguage;
+            }
+            const pointStyleSelect = document.getElementById('pointStyleMode');
+            if (pointStyleSelect) {
+                pointStyleSelect.value = pointStyleMode;
+            }
             initializeMap();
         });
 
         // 響應式處理
-        window.addEventListener('resize', function() {
+        window.addEventListener('resize', function () {
             if (map) {
                 map.resize();
             }
         });
     </script>
 </body>
+
 </html>
