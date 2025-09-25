@@ -223,7 +223,9 @@
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         .error-message {
@@ -239,12 +241,12 @@
             .container {
                 flex-direction: column;
             }
-            
+
             .sidebar {
                 width: 100%;
                 height: 250px;
             }
-            
+
             .map-container {
                 height: calc(100vh - 250px);
             }
@@ -265,10 +267,8 @@
                 <!-- API 金鑰設定 -->
                 <div class="section">
                     <div class="section-title">🔑 API 設定</div>
-                    <input type="password" 
-                           id="api-key-input" 
-                           class="api-key-input" 
-                           placeholder="輸入 OpenWeather API Key (可選)">
+                    <input type="password" id="api-key-input" class="api-key-input"
+                        placeholder="輸入 OpenWeather API Key (可選)">
                     <button class="btn-primary" onclick="updateApiKey()">
                         設定 API Key
                     </button>
@@ -289,21 +289,25 @@
                 <!-- 圖層控制 -->
                 <div class="section">
                     <div class="section-title">🗺️ 圖層控制</div>
-                    
+
                     <!-- 基本圖層 -->
                     <div class="layer-group">
                         <h4>📍 基本圖層</h4>
                         <div class="layer-item">
-                            <input type="checkbox" class="layer-checkbox" id="weather-stations" checked onchange="toggleWeatherStations()">
+                            <input type="checkbox" class="layer-checkbox" id="weather-stations" checked
+                                onchange="toggleWeatherStations()">
                             <label class="layer-name" for="weather-stations">氣象站</label>
-                            <input type="range" class="opacity-slider" min="0" max="100" value="100" onchange="setWeatherStationsOpacity(this.value)">
+                            <input type="range" class="opacity-slider" min="0" max="100" value="100"
+                                onchange="setWeatherStationsOpacity(this.value)">
                         </div>
                         <div class="layer-item">
-                            <input type="checkbox" class="layer-checkbox" id="temperature-labels" checked onchange="toggleTemperatureLabels()">
+                            <input type="checkbox" class="layer-checkbox" id="temperature-labels" checked
+                                onchange="toggleTemperatureLabels()">
                             <label class="layer-name" for="temperature-labels">溫度標籤</label>
                         </div>
                         <div class="layer-item">
-                            <input type="checkbox" class="layer-checkbox" id="city-labels" checked onchange="toggleCityLabels()">
+                            <input type="checkbox" class="layer-checkbox" id="city-labels" checked
+                                onchange="toggleCityLabels()">
                             <label class="layer-name" for="city-labels">城市名稱</label>
                         </div>
                     </div>
@@ -376,7 +380,8 @@
                 <div class="legend-title">溫度圖例</div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: #0000ff;"></div>
-                    <span>< 15°C (低溫)</span>
+                    <span>
+                        < 15°C (低溫)</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: #00ffff;"></div>
@@ -405,7 +410,7 @@
     <script>
         // Mapbox 設定
         mapboxgl.accessToken = 'pk.eyJ1IjoiYmVlLWRuYSIsImEiOiJjbWZ5MTlhOTkwZnF3MmxvbjkwN2RtM2Z4In0.yFiY2MNpWqaDINuLaz1e0w';
-        
+
         // 全域變數
         let map;
         let currentApiKey = null;
@@ -416,7 +421,7 @@
         // 地圖樣式配置
         const mapStyles = {
             'light': 'mapbox://styles/mapbox/light-v11',
-            'dark': 'mapbox://styles/mapbox/dark-v11', 
+            'dark': 'mapbox://styles/mapbox/dark-v11',
             'satellite': 'mapbox://styles/mapbox/satellite-v9',
             'streets': 'mapbox://styles/mapbox/streets-v12'
         };
@@ -441,7 +446,7 @@
 
             // 添加導航控制
             map.addControl(new mapboxgl.NavigationControl());
-            
+
             // 添加比例尺
             map.addControl(new mapboxgl.ScaleControl());
 
@@ -469,7 +474,7 @@
         async function loadWeatherStations() {
             try {
                 updateStatus('載入氣象站資料...');
-                
+
                 let url = '/api/weather/stations';
                 if (currentApiKey) {
                     url += '?api_key=' + encodeURIComponent(currentApiKey);
@@ -497,7 +502,7 @@
                 // 更新側邊欄天氣資料
                 updateWeatherSidebar(geojsonData);
                 updateWeatherStats(geojsonData);
-                
+
                 updateStatus('氣象站資料更新完成');
             } catch (error) {
                 console.error('載入氣象站資料失敗:', error);
@@ -593,7 +598,7 @@
 
                 // 添加點擊事件
                 map.on('click', 'weather-points', handleStationClick);
-                
+
                 // 添加滑鼠懸停效果
                 map.on('mouseenter', 'weather-points', () => {
                     map.getCanvas().style.cursor = 'pointer';
@@ -612,14 +617,14 @@
         function handleStationClick(e) {
             // 阻止事件冒泡
             e.originalEvent.stopPropagation();
-            
+
             const properties = e.features[0].properties;
-            
+
             // 關閉現有彈窗
             if (currentPopup) {
                 currentPopup.remove();
             }
-            
+
             const popupContent = `
                 <div style="font-family: Arial; min-width: 250px;">
                     <h3 style="margin: 0 0 15px 0; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 8px;">
@@ -654,7 +659,7 @@
                 </div>
             `;
 
-            currentPopup = new mapboxgl.Popup({ 
+            currentPopup = new mapboxgl.Popup({
                 closeOnClick: false,
                 anchor: 'bottom',
                 offset: [0, -10]
@@ -667,7 +672,7 @@
         // 更新側邊欄天氣資料
         function updateWeatherSidebar(geojsonData) {
             const weatherDataDiv = document.getElementById('weather-data');
-            
+
             if (!geojsonData.features || geojsonData.features.length === 0) {
                 weatherDataDiv.innerHTML = '<p>暫無天氣資料</p>';
                 return;
@@ -697,7 +702,7 @@
 
             const temperatures = geojsonData.features.map(f => f.properties.temperature).filter(t => t !== 'N/A');
             const humidities = geojsonData.features.map(f => f.properties.humidity).filter(h => h !== 'N/A');
-            
+
             if (temperatures.length === 0) return;
 
             const avgTemp = (temperatures.reduce((a, b) => a + b, 0) / temperatures.length).toFixed(1);
@@ -733,9 +738,9 @@
         function changeMapStyle() {
             const styleSelect = document.getElementById('map-style-select');
             const selectedStyle = styleSelect.value;
-            
+
             map.setStyle(mapStyles[selectedStyle]);
-            
+
             // 重新設定圖層 (樣式更改後需要重新添加)
             map.once('styledata', () => {
                 if (weatherStationsData) {
@@ -746,7 +751,7 @@
                     setupMapLayers();
                 }
             });
-            
+
             updateStatus(`已切換到 ${selectedStyle} 樣式`);
         }
 
@@ -754,7 +759,7 @@
         function toggleWeatherStations() {
             const checkbox = document.getElementById('weather-stations');
             const visibility = checkbox.checked ? 'visible' : 'none';
-            
+
             if (map.getLayer('weather-points')) {
                 map.setLayoutProperty('weather-points', 'visibility', visibility);
             }
@@ -763,7 +768,7 @@
         function toggleTemperatureLabels() {
             const checkbox = document.getElementById('temperature-labels');
             const visibility = checkbox.checked ? 'visible' : 'none';
-            
+
             if (map.getLayer('weather-labels')) {
                 map.setLayoutProperty('weather-labels', 'visibility', visibility);
             }
@@ -772,7 +777,7 @@
         function toggleCityLabels() {
             const checkbox = document.getElementById('city-labels');
             const visibility = checkbox.checked ? 'visible' : 'none';
-            
+
             if (map.getLayer('city-labels')) {
                 map.setLayoutProperty('city-labels', 'visibility', visibility);
             }
@@ -789,7 +794,7 @@
         function updateApiKey() {
             const apiKeyInput = document.getElementById('api-key-input');
             currentApiKey = apiKeyInput.value.trim() || null;
-            
+
             if (currentApiKey) {
                 updateStatus('更新 API Key，重新載入資料...');
             } else {
@@ -835,14 +840,14 @@
             }
 
             const dataStr = JSON.stringify(weatherStationsData, null, 2);
-            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
             const url = URL.createObjectURL(dataBlob);
-            
+
             const link = document.createElement('a');
             link.href = url;
             link.download = `weather_data_${new Date().toISOString().slice(0, 10)}.json`;
             link.click();
-            
+
             URL.revokeObjectURL(url);
             updateStatus('資料已匯出');
         }

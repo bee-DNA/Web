@@ -3,7 +3,7 @@
 包含完整的圖層控制和即時資料顯示
 """
 
-HTML_TEMPLATE = '''
+HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="zh-TW">
 
@@ -727,7 +727,8 @@ HTML_TEMPLATE = '''
 </body>
 
 </html>
-'''
+"""
+
 
 def create_weather_map_html():
     """建立完整的天氣地圖 HTML 檔案"""
