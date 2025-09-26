@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌍 互動式城市地圖系統 (測試版)</title>
+
+    <!-- Mapbox GL JS -->
+    <script src='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css' rel='stylesheet' />
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: white;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            flex-direction: column;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .btn {
+            width: 100%;
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            border: none;
+            border-radius: 8px;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #e9ecef;
+        }
+
+        .btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .status {
+            background: #e8f5e8;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            text-align: center;
+        }
+
+        .error {
+            background: #ffe6e6;
+            color: #d63031;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>正在載入地圖系統...</p>
+        <p id="status">初始化中...</p>
+    </div>
+
+    <div class="container">
+        <header class="header">
+            <h1>🌍 互動式城市地圖系統</h1>
+            <p>全球25個主要城市人口資訊展示</p>
+        </header>
+
+        <div class="main-container">
+            <aside class="sidebar">
+                <h3>控制面板</h3>
+
+                <div class="status" id="mapStatus">
+                    <strong>地圖狀態:</strong> <span id="mapStatusText">載入中...</span>
+                </div>
+
+                <h4>地圖樣式</h4>
+                <button class="btn active" onclick="changeStyle('streets')">街道地圖</button>
+                <button class="btn" onclick="changeStyle('satellite')">衛星地圖</button>
+                <button class="btn" onclick="changeStyle('dark')">深色地圖</button>
+
+                <h4>快速導航</h4>
+                <button class="btn" onclick="flyToRegion([116, 35], 3)">🏯 亞洲</button>
+                <button class="btn" onclick="flyToRegion([10, 50], 3.5)">🏰 歐洲</button>
+                <button class="btn" onclick="flyToRegion([-74, 40], 2.5)">🗽 美洲</button>
+
+                <div id="errorLog"></div>
+            </aside>
+
+            <main class="map-container">
+                <div id="map"></div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // 全局變量
+        let map;
+        let mapLoaded = false;
+
+        // Mapbox token
+        mapboxgl.accessToken = 'pk.eyJ1IjoiYmVlZG5hIiwiYSI6ImNtMWtqY3dkazBjdDQya3B6dWdyOGU5bHgifQ.18dLqHBax3kgzUI7Jvxllw';
+
+        // 城市數據（簡化版）
+        const cities = [
+            { name: '東京', coordinates: [139.6917, 35.6895], population: 37400068 },
+            { name: '德里', coordinates: [77.1025, 28.7041], population: 29399141 },
+            { name: '上海', coordinates: [121.4737, 31.2304], population: 24870895 },
+            { name: '聖保羅', coordinates: [-46.6333, -23.5505], population: 21831000 },
+            { name: '墨西哥城', coordinates: [-99.1332, 19.4326], population: 21581000 },
+            { name: '孟買', coordinates: [72.8777, 19.0760], population: 19980000 },
+            { name: '北京', coordinates: [116.4074, 39.9042], population: 21542000 },
+            { name: '紐約', coordinates: [-74.0059, 40.7128], population: 18819000 },
+            { name: '倫敦', coordinates: [-0.1276, 51.5074], population: 8982000 },
+            { name: '台北', coordinates: [121.5654, 25.0330], population: 2700000 }
+        ];
+
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+            document.getElementById('mapStatusText').textContent = message;
+            console.log('📊 狀態更新:', message);
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorLog');
+            errorDiv.innerHTML = `<div class="error">${message}</div>`;
+            console.error('❌ 錯誤:', message);
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function initMap() {
+            updateStatus('初始化地圖...');
+
+            try {
+                map = new mapboxgl.Map({
+                    container: 'map',
+                    style: 'mapbox://styles/mapbox/streets-v12',
+                    center: [116, 35],
+                    zoom: 2.5
+                });
+
+                map.on('load', function () {
+                    updateStatus('載入城市資料...');
+                    addCities();
+                    updateStatus('完成');
+                    hideLoading();
+                    mapLoaded = true;
+                    console.log('✅ 地圖載入完成');
+                });
+
+                map.on('error', function (e) {
+                    showError('地圖載入失敗: ' + e.error.message);
+                    hideLoading();
+                });
+
+                // 添加控制元件
+                map.addControl(new mapboxgl.NavigationControl());
+
+            } catch (error) {
+                showError('地圖初始化失敗: ' + error.message);
+                hideLoading();
+            }
+        }
+
+        function addCities() {
+            const features = cities.map(city => ({
+                type: 'Feature',
+                properties: {
+                    name: city.name,
+                    population: city.population
+                },
+                geometry: {
+                    type: 'Point',
+                    coordinates: city.coordinates
+                }
+            }));
+
+            map.addSource('cities', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: features
+                }
+            });
+
+            map.addLayer({
+                id: 'cities',
+                type: 'circle',
+                source: 'cities',
+                paint: {
+                    'circle-radius': [
+                        'interpolate',
+                        ['linear'],
+                        ['get', 'population'],
+                        2000000, 8,
+                        10000000, 12,
+                        20000000, 16,
+                        40000000, 24
+                    ],
+                    'circle-color': '#667eea',
+                    'circle-opacity': 0.8,
+                    'circle-stroke-width': 2,
+                    'circle-stroke-color': 'white'
+                }
+            });
+
+            map.addLayer({
+                id: 'city-labels',
+                type: 'symbol',
+                source: 'cities',
+                layout: {
+                    'text-field': ['get', 'name'],
+                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                    'text-size': 11,
+                    'text-anchor': 'top',
+                    'text-offset': [0, 1.5]
+                },
+                paint: {
+                    'text-color': '#333',
+                    'text-halo-color': 'white',
+                    'text-halo-width': 1
+                }
+            });
+
+            // 點擊事件
+            map.on('click', 'cities', function (e) {
+                const feature = e.features[0];
+                const coordinates = feature.geometry.coordinates.slice();
+                const name = feature.properties.name;
+                const population = feature.properties.population.toLocaleString();
+
+                new mapboxgl.Popup()
+                    .setLngLat(coordinates)
+                    .setHTML(`
+                        <h3>${name}</h3>
+                        <p><strong>人口:</strong> ${population}</p>
+                    `)
+                    .addTo(map);
+            });
+
+            map.on('mouseenter', 'cities', function () {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+
+            map.on('mouseleave', 'cities', function () {
+                map.getCanvas().style.cursor = '';
+            });
+        }
+
+        function changeStyle(style) {
+            if (!mapLoaded) return;
+
+            const styles = {
+                'streets': 'mapbox://styles/mapbox/streets-v12',
+                'satellite': 'mapbox://styles/mapbox/satellite-streets-v12',
+                'dark': 'mapbox://styles/mapbox/dark-v11'
+            };
+
+            map.setStyle(styles[style]);
+
+            // 重新添加數據
+            map.on('styledata', function () {
+                if (map.isStyleLoaded()) {
+                    addCities();
+                }
+            });
+
+            // 更新按鈕狀態
+            document.querySelectorAll('.btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        function flyToRegion(center, zoom) {
+            if (!mapLoaded) return;
+
+            map.flyTo({
+                center: center,
+                zoom: zoom,
+                duration: 2000
+            });
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('🚀 開始載入測試版地圖...');
+
+            // 檢查 Mapbox GL JS 是否載入
+            if (typeof mapboxgl === 'undefined') {
+                showError('Mapbox GL JS 載入失敗');
+                hideLoading();
+                return;
+            }
+
+            // 延遲初始化確保DOM完全載入
+            setTimeout(() => {
+                initMap();
+            }, 500);
+        });
+
+        // 錯誤處理
+        window.addEventListener('error', function (e) {
+            showError('JavaScript 錯誤: ' + e.message);
+            console.error('🚨 全域錯誤:', e);
+        });
+
+        // 給使用者一些反饋
+        setTimeout(() => {
+            if (document.getElementById('loading').style.display !== 'none') {
+                updateStatus('載入中，請稍候...');
+            }
+        }, 3000);
+
+        setTimeout(() => {
+            if (document.getElementById('loading').style.display !== 'none') {
+                showError('載入時間過長，可能是網路問題');
+                hideLoading();
+            }
+        }, 15000);
+    </script>
+</body>
+
+</html>

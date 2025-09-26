@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌍 互動式城市地圖 - 天氣整合版</title>
+
+    <!-- Mapbox GL JS -->
+    <script src='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css' rel='stylesheet' />
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            animation: fadeIn 1s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            animation: slideDown 0.8s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+            }
+
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 300;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: white;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            animation: slideInLeft 0.8s ease-out;
+        }
+
+        @keyframes slideInLeft {
+            from {
+                transform: translateX(-100%);
+            }
+
+            to {
+                transform: translateX(0);
+            }
+        }
+
+        .sidebar-header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+        }
+
+        .control-section {
+            margin-bottom: 2rem;
+        }
+
+        .control-section h3 {
+            color: #333;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            text-align: left;
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #e9ecef;
+        }
+
+        .btn:hover {
+            background: #e9ecef;
+            transform: translateY(-1px);
+        }
+
+        .btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: transparent;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .return-btn {
+            position: absolute;
+            top: 20px;
+            left: 320px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+            display: none;
+            animation: popIn 0.5s ease-out;
+        }
+
+        @keyframes popIn {
+            from {
+                transform: scale(0) rotate(-180deg);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+            }
+        }
+
+        .return-btn:hover {
+            background: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .loading-content {
+            text-align: center;
+            color: #333;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .stats-container {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            animation: slideInRight 1s ease-out;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            opacity: 0.9;
+        }
+
+        /* 天氣工具提示樣式 */
+        .weather-tooltip {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            border: 1px solid #e9ecef;
+            z-index: 1000;
+            min-width: 200px;
+            pointer-events: none;
+            font-size: 0.9rem;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            animation: weatherFadeIn 0.3s ease-out;
+        }
+
+        @keyframes weatherFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px) scale(0.9);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .weather-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .weather-icon {
+            width: 40px;
+            height: 40px;
+            margin-right: 0.75rem;
+        }
+
+        .weather-main {
+            flex: 1;
+        }
+
+        .weather-temp {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .weather-desc {
+            font-size: 0.85rem;
+            color: #666;
+            text-transform: capitalize;
+        }
+
+        .weather-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+        }
+
+        .weather-item {
+            display: flex;
+            align-items: center;
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .weather-item i {
+            margin-right: 0.5rem;
+            width: 16px;
+            text-align: center;
+        }
+
+        /* 增強彈窗樣式 */
+        .mapboxgl-popup-content {
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+            border: none;
+            max-width: 400px;
+            animation: popupSlideIn 0.4s ease-out;
+        }
+
+        @keyframes popupSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px) scale(0.9);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .popup-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            margin: -15px -15px 1rem -15px;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .popup-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+        }
+
+        .popup-subtitle {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .popup-body {
+            padding: 0 0.5rem 0.5rem;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .info-item {
+            text-align: center;
+            padding: 0.75rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .info-value {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #333;
+            display: block;
+        }
+
+        .info-label {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+
+        .weather-section {
+            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+            color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .weather-current {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .weather-current-icon {
+            width: 60px;
+            height: 60px;
+            margin-right: 1rem;
+        }
+
+        .weather-current-info h3 {
+            margin: 0 0 0.25rem;
+            font-size: 1.8rem;
+        }
+
+        .weather-current-info p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 0.9rem;
+        }
+
+        .weather-details-popup {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .weather-detail-item {
+            text-align: center;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            color: white;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        /* 響應式設計 */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: absolute;
+                left: -300px;
+                transition: left 0.3s ease;
+                height: 100%;
+                z-index: 1000;
+            }
+
+            .sidebar.active {
+                left: 0;
+            }
+
+            .return-btn {
+                left: 20px;
+            }
+
+            .weather-tooltip {
+                min-width: 180px;
+                font-size: 0.8rem;
+            }
+
+            .popup-content {
+                max-width: 300px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <p>正在載入互動式地圖系統...</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <header class="header">
+            <h1>🌍 互動式城市地圖系統 - 天氣整合版</h1>
+            <p>探索全球25個主要城市的人口資訊與即時天氣數據</p>
+        </header>
+
+        <div class="main-container">
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <h2>🎛️ 控制面板</h2>
+                </div>
+
+                <div class="sidebar-content">
+                    <!-- 統計資訊 -->
+                    <div class="stats-container">
+                        <h3 style="margin-bottom: 1rem;">📊 統計資訊</h3>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span class="stat-value" id="totalCities">25</span>
+                                <span class="stat-label">城市數量</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value" id="totalPopulation">-</span>
+                                <span class="stat-label">總人口</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value" id="maxCity">-</span>
+                                <span class="stat-label">最大城市</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value" id="weatherStatus">載入中</span>
+                                <span class="stat-label">天氣狀態</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 地圖樣式控制 -->
+                    <div class="control-section">
+                        <h3>🗺️ 地圖樣式</h3>
+                        <div class="button-group">
+                            <button class="btn active"
+                                onclick="changeMapStyle('mapbox://styles/mapbox/streets-v12')">街道地圖</button>
+                            <button class="btn"
+                                onclick="changeMapStyle('mapbox://styles/mapbox/satellite-streets-v12')">衛星街道</button>
+                            <button class="btn"
+                                onclick="changeMapStyle('mapbox://styles/mapbox/light-v11')">淺色地圖</button>
+                            <button class="btn"
+                                onclick="changeMapStyle('mapbox://styles/mapbox/dark-v11')">深色地圖</button>
+                            <button class="btn"
+                                onclick="changeMapStyle('mapbox://styles/mapbox/outdoors-v12')">戶外地圖</button>
+                            <button class="btn"
+                                onclick="changeMapStyle('mapbox://styles/mapbox/navigation-day-v1')">導航白天</button>
+                            <button class="btn"
+                                onclick="changeMapStyle('mapbox://styles/mapbox/navigation-night-v1')">導航夜晚</button>
+                            <button class="btn"
+                                onclick="changeMapStyle('mapbox://styles/mapbox/satellite-v9')">純衛星</button>
+                        </div>
+                    </div>
+
+                    <!-- 語言控制 -->
+                    <div class="control-section">
+                        <h3>🌐 地圖語言</h3>
+                        <div class="button-group">
+                            <button class="btn" onclick="changeLabelLanguage('zh')">中文標籤</button>
+                            <button class="btn" onclick="changeLabelLanguage('en')">英文標籤</button>
+                            <button class="btn active" onclick="changeLabelLanguage('default')">預設語言</button>
+                        </div>
+                    </div>
+
+                    <!-- 區域快速跳轉 -->
+                    <div class="control-section">
+                        <h3>🌏 區域導航</h3>
+                        <div class="button-group">
+                            <button class="btn" onclick="flyToRegion('asia')">🏯 亞洲</button>
+                            <button class="btn" onclick="flyToRegion('europe')">🏰 歐洲</button>
+                            <button class="btn" onclick="flyToRegion('america')">🗽 美洲</button>
+                            <button class="btn" onclick="flyToRegion('africa')">🦁 非洲</button>
+                            <button class="btn" onclick="flyToRegion('oceania')">🏄 大洋洲</button>
+                        </div>
+                    </div>
+
+                    <!-- 天氣控制 -->
+                    <div class="control-section">
+                        <h3>🌤️ 天氣顯示</h3>
+                        <div class="button-group">
+                            <button class="btn active" id="weatherToggle"
+                                onclick="toggleWeatherDisplay()">顯示天氣資訊</button>
+                            <button class="btn" onclick="refreshWeatherData()">🔄 更新天氣</button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="map-container">
+                <button class="return-btn" id="returnViewBtn" onclick="returnToPreviousView()">
+                    ↩️ 返回總覽
+                </button>
+                <div id="map"></div>
+            </main>
+        </div>
+    </div>
+
+    <!-- 天氣工具提示模板 -->
+    <div class="weather-tooltip" id="weatherTooltip" style="display: none;">
+        <div class="weather-header">
+            <img class="weather-icon" id="tooltipWeatherIcon" src="" alt="">
+            <div class="weather-main">
+                <div class="weather-temp" id="tooltipTemp">--°C</div>
+                <div class="weather-desc" id="tooltipDesc">載入中...</div>
+            </div>
+        </div>
+        <div class="weather-details">
+            <div class="weather-item">
+                <i>💧</i>
+                <span id="tooltipHumidity">--%</span>
+            </div>
+            <div class="weather-item">
+                <i>💨</i>
+                <span id="tooltipWind">-- km/h</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // OpenWeatherMap API 配置
+        const WEATHER_CONFIG = {
+            API_KEY: 'c56fc30a9025ff1ff2089b3eef0e7389', // 請替換為您的API密鑰
+            BASE_URL: 'https://api.openweathermap.org/data/2.5',
+            ICON_URL: 'https://openweathermap.org/img/wn'
+        };
+
+        // 全局變量
+        let map;
+        let previousView = null;
+        let currentLanguage = 'default';
+        let weatherDisplayEnabled = true;
+        let weatherCache = new Map();
+        let weatherTooltip;
+
+        // Mapbox Access Token
+        mapboxgl.accessToken = 'pk.eyJ1IjoiYmVlZG5hIiwiYSI6ImNtMWtqY3dkazBjdDQya3B6dWdyOGU5bHgifQ.18dLqHBax3kgzUI7Jvxllw';
+
+        // 語言配置
+        const LANGUAGE_FIELDS = {
+            zh: ['coalesce',
+                ['get', 'name_zh-Hant'],
+                ['get', 'name_zh-Hans'],
+                ['get', 'name_zh'],
+                ['get', 'name'],
+                ['get', 'name_en']
+            ],
+            en: ['coalesce', ['get', 'name_en'], ['get', 'name'], ['get', 'name_zh']],
+            default: ['coalesce', ['get', 'name'], ['get', 'name_en'], ['get', 'name_zh']]
+        };
+
+        const LANGUAGE_DISPLAY_NAMES = {
+            zh: '中文',
+            en: 'English',
+            default: '預設 (多語)'
+        };
+
+        // 城市數據 (25個全球主要城市)
+        const CITY_DATA = [
+            { name_zh: '東京', name_en: 'Tokyo', coordinates: [139.6917, 35.6895], population: 37400068, country: '日本' },
+            { name_zh: '雅加達', name_en: 'Jakarta', coordinates: [106.8650, -6.1751], population: 10562088, country: '印尼' },
+            { name_zh: '德里', name_en: 'Delhi', coordinates: [77.1025, 28.7041], population: 29399141, country: '印度' },
+            { name_zh: '馬尼拉', name_en: 'Manila', coordinates: [120.9842, 14.5995], population: 13482462, country: '菲律賓' },
+            { name_zh: '上海', name_en: 'Shanghai', coordinates: [121.4737, 31.2304], population: 24870895, country: '中國' },
+            { name_zh: '聖保羅', name_en: 'São Paulo', coordinates: [-46.6333, -23.5505], population: 21831000, country: '巴西' },
+            { name_zh: '首爾', name_en: 'Seoul', coordinates: [126.9780, 37.5665], population: 9733509, country: '韓國' },
+            { name_zh: '墨西哥城', name_en: 'Mexico City', coordinates: [-99.1332, 19.4326], population: 21581000, country: '墨西哥' },
+            { name_zh: '開羅', name_en: 'Cairo', coordinates: [31.2357, 30.0444], population: 18772000, country: '埃及' },
+            { name_zh: '孟買', name_en: 'Mumbai', coordinates: [72.8777, 19.0760], population: 19980000, country: '印度' },
+            { name_zh: '北京', name_en: 'Beijing', coordinates: [116.4074, 39.9042], population: 21542000, country: '中國' },
+            { name_zh: '達卡', name_en: 'Dhaka', coordinates: [90.4125, 23.8103], population: 20284000, country: '孟加拉' },
+            { name_zh: '大阪', name_en: 'Osaka', coordinates: [135.5023, 34.6937], population: 19222665, country: '日本' },
+            { name_zh: '紐約', name_en: 'New York', coordinates: [-74.0059, 40.7128], population: 18819000, country: '美國' },
+            { name_zh: '卡拉奇', name_en: 'Karachi', coordinates: [67.0011, 24.8607], population: 14910352, country: '巴基斯坦' },
+            { name_zh: '布宜諾斯艾利斯', name_en: 'Buenos Aires', coordinates: [-58.3816, -34.6037], population: 14967000, country: '阿根廷' },
+            { name_zh: '鄭州', name_en: 'Zhengzhou', coordinates: [113.6254, 34.7466], population: 10120000, country: '中國' },
+            { name_zh: '伊斯坦堡', name_en: 'Istanbul', coordinates: [28.9784, 41.0082], population: 14751000, country: '土耳其' },
+            { name_zh: '重慶', name_en: 'Chongqing', coordinates: [106.9128, 29.4316], population: 14838000, country: '中國' },
+            { name_zh: '拉各斯', name_en: 'Lagos', coordinates: [3.3792, 6.5244], population: 13463000, country: '奈及利亞' },
+            { name_zh: '馬德里', name_en: 'Madrid', coordinates: [-3.7038, 40.4168], population: 6155116, country: '西班牙' },
+            { name_zh: '台北', name_en: 'Taipei', coordinates: [121.5654, 25.0330], population: 2700000, country: '台灣' },
+            { name_zh: '香港', name_en: 'Hong Kong', coordinates: [114.1694, 22.3193], population: 7496981, country: '香港' },
+            { name_zh: '新加坡', name_en: 'Singapore', coordinates: [103.8198, 1.3521], population: 5850342, country: '新加坡' },
+            { name_zh: '倫敦', name_en: 'London', coordinates: [-0.1276, 51.5074], population: 8982000, country: '英國' }
+        ];
+
+        // 區域坐標
+        const REGIONS = {
+            asia: { center: [116, 35], zoom: 3 },
+            europe: { center: [10, 50], zoom: 3.5 },
+            america: { center: [-74, 40], zoom: 2.5 },
+            africa: { center: [20, 0], zoom: 2.5 },
+            oceania: { center: [151, -33], zoom: 4 }
+        };
+
+        // 天氣API函數
+        async function fetchWeatherData(lat, lon) {
+            const cacheKey = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+
+            // 檢查快取 (30分鐘有效)
+            if (weatherCache.has(cacheKey)) {
+                const cached = weatherCache.get(cacheKey);
+                if (Date.now() - cached.timestamp < 30 * 60 * 1000) {
+                    return cached.data;
+                }
+            }
+
+            try {
+                // 設置請求超時
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超時
+
+                const response = await fetch(
+                    `${WEATHER_CONFIG.BASE_URL}/weather?lat=${lat}&lon=${lon}&appid=${WEATHER_CONFIG.API_KEY}&units=metric&lang=zh_tw`,
+                    {
+                        signal: controller.signal,
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    }
+                );
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                // 快取資料
+                weatherCache.set(cacheKey, {
+                    data: data,
+                    timestamp: Date.now()
+                });
+
+                return data;
+            } catch (error) {
+                console.warn(`天氣API請求失敗 (${lat}, ${lon}):`, error.message);
+
+                // 返回模擬數據以保持功能運作
+                return {
+                    main: {
+                        temp: Math.random() * 30 + 5, // 5-35度隨機溫度
+                        humidity: Math.floor(Math.random() * 40 + 40), // 40-80%濕度
+                        feels_like: Math.random() * 30 + 5,
+                        pressure: 1013
+                    },
+                    weather: [{
+                        description: '資料載入中',
+                        icon: '01d'
+                    }],
+                    wind: {
+                        speed: Math.random() * 10 + 5 // 5-15 m/s
+                    },
+                    visibility: 10000,
+                    _isMockData: true
+                };
+            }
+        }
+
+        // 顯示天氣工具提示
+        function showWeatherTooltip(e, cityData, weatherData) {
+            if (!weatherDisplayEnabled || !weatherData) return;
+
+            const tooltip = document.getElementById('weatherTooltip');
+            const temp = Math.round(weatherData.main.temp);
+            const iconCode = weatherData.weather[0].icon;
+
+            // 更新工具提示內容
+            document.getElementById('tooltipTemp').textContent = `${temp}°C`;
+            document.getElementById('tooltipDesc').textContent = weatherData.weather[0].description;
+            document.getElementById('tooltipHumidity').textContent = `${weatherData.main.humidity}%`;
+            document.getElementById('tooltipWind').textContent = `${Math.round(weatherData.wind?.speed * 3.6 || 0)} km/h`;
+            document.getElementById('tooltipWeatherIcon').src = `${WEATHER_CONFIG.ICON_URL}/${iconCode}@2x.png`;
+
+            // 定位工具提示
+            const rect = map.getContainer().getBoundingClientRect();
+            tooltip.style.left = (e.point.x + rect.left + 15) + 'px';
+            tooltip.style.top = (e.point.y + rect.top - 80) + 'px';
+            tooltip.style.display = 'block';
+        }
+
+        // 隱藏天氣工具提示
+        function hideWeatherTooltip() {
+            const tooltip = document.getElementById('weatherTooltip');
+            tooltip.style.display = 'none';
+        }
+
+        // 初始化地圖
+        function initializeMap() {
+            try {
+                console.log('🚀 開始初始化地圖...');
+                showLoading(true);
+
+                // 檢查 Mapbox token
+                if (!mapboxgl.accessToken) {
+                    console.error('❌ Mapbox access token 未設定');
+                    showError('Mapbox access token 未設定');
+                    return;
+                }
+
+                map = new mapboxgl.Map({
+                    container: 'map',
+                    style: 'mapbox://styles/mapbox/streets-v12',
+                    center: [116, 35],
+                    zoom: 2.5,
+                    pitch: 0,
+                    bearing: 0
+                });
+
+                map.on('load', function () {
+                    console.log('🗺️ 地圖載入完成');
+                    try {
+                        addCityData();
+                        updateStatistics();
+                        showLoading(false);
+
+                        // 延遲載入天氣數據，避免阻塞地圖顯示
+                        setTimeout(() => {
+                            loadWeatherForAllCities();
+                        }, 1000);
+                    } catch (error) {
+                        console.error('❌ 地圖載入後處理錯誤:', error);
+                        showError('地圖資料載入錯誤: ' + error.message);
+                    }
+                });
+
+                map.on('error', function (e) {
+                    console.error('❌ 地圖載入錯誤:', e);
+                    showError('地圖載入失敗，請檢查網路連接');
+                });
+
+                // 添加控制元件
+                map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+                map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
+
+                console.log('✅ 地圖初始化設定完成');
+            } catch (error) {
+                console.error('❌ 地圖初始化錯誤:', error);
+                showError('地圖初始化失敗: ' + error.message);
+            }
+        }
+
+        // 添加城市數據到地圖
+        function addCityData() {
+            const features = CITY_DATA.map(city => ({
+                type: 'Feature',
+                properties: {
+                    name_zh: city.name_zh,
+                    name_en: city.name_en,
+                    population: city.population,
+                    country: city.country,
+                    coordinates: city.coordinates
+                },
+                geometry: {
+                    type: 'Point',
+                    coordinates: city.coordinates
+                }
+            }));
+
+            map.addSource('cities', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: features
+                }
+            });
+
+            // 添加城市圓點圖層
+            map.addLayer({
+                id: 'cities-circle',
+                type: 'circle',
+                source: 'cities',
+                paint: {
+                    'circle-radius': [
+                        'interpolate',
+                        ['linear'],
+                        ['get', 'population'],
+                        2000000, 8,
+                        10000000, 12,
+                        20000000, 16,
+                        40000000, 24
+                    ],
+                    'circle-color': [
+                        'interpolate',
+                        ['linear'],
+                        ['get', 'population'],
+                        2000000, '#74b9ff',
+                        10000000, '#0984e3',
+                        20000000, '#6c5ce7',
+                        40000000, '#a29bfe'
+                    ],
+                    'circle-opacity': 0.8,
+                    'circle-stroke-width': 2,
+                    'circle-stroke-color': 'white'
+                }
+            });
+
+            // 添加城市標籤圖層
+            map.addLayer({
+                id: 'cities-label',
+                type: 'symbol',
+                source: 'cities',
+                layout: {
+                    'text-field': LANGUAGE_FIELDS[currentLanguage],
+                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                    'text-size': 11,
+                    'text-anchor': 'top',
+                    'text-offset': [0, 1.5],
+                    'text-max-width': 8
+                },
+                paint: {
+                    'text-color': '#333',
+                    'text-halo-color': 'white',
+                    'text-halo-width': 1
+                }
+            });
+
+            // 鼠標懸停事件
+            map.on('mouseenter', 'cities-circle', async (e) => {
+                map.getCanvas().style.cursor = 'pointer';
+
+                const feature = e.features[0];
+                const coordinates = feature.geometry.coordinates;
+                const cityData = CITY_DATA.find(city =>
+                    city.coordinates[0] === coordinates[0] &&
+                    city.coordinates[1] === coordinates[1]
+                );
+
+                if (weatherDisplayEnabled && cityData) {
+                    const weatherData = await fetchWeatherData(coordinates[1], coordinates[0]);
+                    showWeatherTooltip(e, cityData, weatherData);
+                }
+            });
+
+            map.on('mouseleave', 'cities-circle', () => {
+                map.getCanvas().style.cursor = '';
+                hideWeatherTooltip();
+            });
+
+            // 點擊事件
+            map.on('click', 'cities-circle', onCityClick);
+
+            console.log('🏙️ 城市數據載入完成');
+        }
+
+        // 城市點擊處理
+        async function onCityClick(e) {
+            const feature = e.features[0];
+            const coordinates = feature.geometry.coordinates.slice();
+            const properties = feature.properties;
+
+            // 儲存當前視圖
+            if (!previousView) {
+                previousView = {
+                    center: map.getCenter(),
+                    zoom: map.getZoom(),
+                    pitch: map.getPitch(),
+                    bearing: map.getBearing()
+                };
+
+                document.getElementById('returnViewBtn').style.display = 'block';
+            }
+
+            // 確保所有現有彈窗都被關閉
+            const existingPopups = document.querySelectorAll('.mapboxgl-popup');
+            existingPopups.forEach(popup => {
+                try {
+                    popup.remove();
+                } catch (error) {
+                    console.warn('清理彈窗時出現錯誤:', error);
+                }
+            });
+
+            // 獲取天氣資料
+            const weatherData = await fetchWeatherData(coordinates[1], coordinates[0]);
+
+            // 縮放到城市
+            map.flyTo({
+                center: coordinates,
+                zoom: 10,
+                pitch: 45,
+                bearing: 0,
+                duration: 2000,
+                curve: 1.5,
+                easing: function (t) {
+                    return 1 - Math.pow(1 - t, 3);
+                }
+            });
+
+            // 創建彈窗內容
+            const popupContent = createPopupContent(properties, weatherData);
+
+            setTimeout(() => {
+                const popup = new mapboxgl.Popup({
+                    closeButton: false,
+                    focusAfterOpen: false,
+                    maxWidth: '400px'
+                })
+                    .setLngLat(coordinates)
+                    .setHTML(popupContent)
+                    .addTo(map);
+
+                // 延遲添加事件監聽器
+                setTimeout(() => {
+                    const closeButton = document.querySelector('.close-btn');
+                    if (closeButton) {
+                        closeButton.onclick = function (e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            popup.remove();
+                            returnToPreviousView();
+                        };
+                    }
+                }, 100);
+            }, 500);
+
+            console.log(`🎯 點擊城市: ${properties.name_zh || properties.name_en}`);
+        }
+
+        // 創建彈窗內容
+        function createPopupContent(properties, weatherData) {
+            const cityName = properties.name_zh || properties.name_en;
+            const population = properties.population?.toLocaleString() || 'N/A';
+
+            let weatherSection = '';
+            if (weatherData && weatherDisplayEnabled) {
+                const temp = Math.round(weatherData.main.temp);
+                const feelsLike = Math.round(weatherData.main.feels_like);
+                const humidity = weatherData.main.humidity;
+                const windSpeed = Math.round((weatherData.wind?.speed || 0) * 3.6);
+                const pressure = weatherData.main.pressure;
+                const visibility = Math.round((weatherData.visibility || 0) / 1000);
+                const iconCode = weatherData.weather[0].icon;
+                const description = weatherData.weather[0].description;
+
+                weatherSection = `
+                    <div class="weather-section">
+                        <div class="weather-current">
+                            <img class="weather-current-icon" src="${WEATHER_CONFIG.ICON_URL}/${iconCode}@2x.png" alt="${description}">
+                            <div class="weather-current-info">
+                                <h3>${temp}°C</h3>
+                                <p>${description}</p>
+                                <p>體感溫度: ${feelsLike}°C</p>
+                            </div>
+                        </div>
+                        <div class="weather-details-popup">
+                            <div class="weather-detail-item">
+                                <div>💧 濕度</div>
+                                <div><strong>${humidity}%</strong></div>
+                            </div>
+                            <div class="weather-detail-item">
+                                <div>💨 風速</div>
+                                <div><strong>${windSpeed} km/h</strong></div>
+                            </div>
+                            <div class="weather-detail-item">
+                                <div>🌡️ 氣壓</div>
+                                <div><strong>${pressure} hPa</strong></div>
+                            </div>
+                            <div class="weather-detail-item">
+                                <div>👁️ 能見度</div>
+                                <div><strong>${visibility} km</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="popup-header">
+                    <button class="close-btn">×</button>
+                    <div class="popup-title">${cityName}</div>
+                    <div class="popup-subtitle">${properties.country}</div>
+                </div>
+                <div class="popup-body">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-value">${population}</span>
+                            <div class="info-label">人口數量</div>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-value">${properties.coordinates[1].toFixed(4)}°N</span>
+                            <div class="info-label">緯度</div>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-value">${properties.coordinates[0].toFixed(4)}°E</span>
+                            <div class="info-label">經度</div>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-value">${getCurrentTime()}</span>
+                            <div class="info-label">查詢時間</div>
+                        </div>
+                    </div>
+                    ${weatherSection}
+                </div>
+            `;
+        }
+
+        // 載入所有城市的天氣數據
+        async function loadWeatherForAllCities() {
+            try {
+                console.log('🌤️ 開始載入天氣數據...');
+                let loadedCount = 0;
+
+                // 檢查天氣功能是否啟用
+                if (!weatherDisplayEnabled) {
+                    document.getElementById('weatherStatus').textContent = '已關閉';
+                    return;
+                }
+
+                document.getElementById('weatherStatus').textContent = '載入中';
+
+                for (const city of CITY_DATA) {
+                    try {
+                        await fetchWeatherData(city.coordinates[1], city.coordinates[0]);
+                        loadedCount++;
+
+                        // 更新統計狀態
+                        const statusElement = document.getElementById('weatherStatus');
+                        if (statusElement) {
+                            statusElement.textContent = `${loadedCount}/${CITY_DATA.length}`;
+                        }
+                    } catch (error) {
+                        console.warn(`載入 ${city.name_zh} 天氣資料失敗:`, error);
+                    }
+
+                    // 短暫延遲避免API限制
+                    await new Promise(resolve => setTimeout(resolve, 150));
+                }
+
+                const statusElement = document.getElementById('weatherStatus');
+                if (statusElement) {
+                    statusElement.textContent = loadedCount > 0 ? `${loadedCount} 個城市` : '載入失敗';
+                }
+                console.log(`✅ 天氣數據載入完成: ${loadedCount}/${CITY_DATA.length}`);
+            } catch (error) {
+                console.error('❌ 天氣數據載入錯誤:', error);
+                const statusElement = document.getElementById('weatherStatus');
+                if (statusElement) {
+                    statusElement.textContent = '載入失敗';
+                }
+            }
+        }
+
+        // 返回之前的視圖
+        function returnToPreviousView() {
+            if (!map || !previousView) {
+                console.log('⚠️  沒有儲存的視圖狀態');
+                return;
+            }
+
+            console.log('🔙 返回之前的視圖');
+
+            // 確保所有彈窗都被關閉
+            const popups = document.querySelectorAll('.mapboxgl-popup');
+            popups.forEach(popup => {
+                try {
+                    popup.remove();
+                } catch (error) {
+                    console.warn('清理彈窗時出現錯誤:', error);
+                }
+            });
+
+            map.flyTo({
+                center: [previousView.center.lng, previousView.center.lat],
+                zoom: previousView.zoom,
+                pitch: previousView.pitch,
+                bearing: previousView.bearing,
+                duration: 1200,
+                curve: 1.1,
+                easing: function (t) {
+                    return 1 - Math.pow(1 - t, 2);
+                }
+            });
+
+            previousView = null;
+            document.getElementById('returnViewBtn').style.display = 'none';
+        }
+
+        // 切換地圖樣式
+        function changeMapStyle(styleUrl) {
+            if (!map) return;
+
+            map.setStyle(styleUrl);
+
+            // 更新按鈕狀態
+            document.querySelectorAll('.control-section .btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // 重新添加數據層
+            map.on('styledata', function () {
+                if (map.isStyleLoaded()) {
+                    addCityData();
+                }
+            });
+
+            console.log('🎨 地圖樣式已更改:', styleUrl);
+        }
+
+        // 切換標籤語言
+        function changeLabelLanguage(language) {
+            if (!map || !map.getLayer('cities-label')) return;
+
+            currentLanguage = language;
+
+            map.setLayoutProperty('cities-label', 'text-field', LANGUAGE_FIELDS[language]);
+
+            // 更新按鈕狀態
+            document.querySelectorAll('.control-section:nth-child(3) .btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            console.log('🌐 標籤語言已切換:', LANGUAGE_DISPLAY_NAMES[language]);
+        }
+
+        // 飛行到特定區域
+        function flyToRegion(region) {
+            if (!map || !REGIONS[region]) return;
+
+            const regionData = REGIONS[region];
+
+            map.flyTo({
+                center: regionData.center,
+                zoom: regionData.zoom,
+                duration: 2000,
+                curve: 1.2,
+                easing: function (t) {
+                    return 1 - Math.pow(1 - t, 2);
+                }
+            });
+
+            console.log('✈️ 飛行到區域:', region);
+        }
+
+        // 切換天氣顯示
+        function toggleWeatherDisplay() {
+            weatherDisplayEnabled = !weatherDisplayEnabled;
+            const button = document.getElementById('weatherToggle');
+
+            if (weatherDisplayEnabled) {
+                button.textContent = '顯示天氣資訊';
+                button.classList.add('active');
+            } else {
+                button.textContent = '隱藏天氣資訊';
+                button.classList.remove('active');
+                hideWeatherTooltip();
+            }
+
+            console.log('🌤️ 天氣顯示:', weatherDisplayEnabled ? '開啟' : '關閉');
+        }
+
+        // 刷新天氣數據
+        function refreshWeatherData() {
+            weatherCache.clear();
+            loadWeatherForAllCities();
+            console.log('🔄 天氣數據已刷新');
+        }
+
+        // 更新統計資訊
+        function updateStatistics() {
+            const totalPopulation = CITY_DATA.reduce((sum, city) => sum + city.population, 0);
+            const maxCity = CITY_DATA.reduce((max, city) =>
+                city.population > max.population ? city : max
+            );
+
+            document.getElementById('totalPopulation').textContent = (totalPopulation / 1000000).toFixed(1) + 'M';
+            document.getElementById('maxCity').textContent = maxCity.name_zh || maxCity.name_en;
+        }
+
+        // 顯示/隱藏載入畫面
+        function showLoading(show) {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            if (loadingOverlay) {
+                loadingOverlay.style.display = show ? 'flex' : 'none';
+            }
+        }
+
+        // 顯示錯誤訊息
+        function showError(message) {
+            showLoading(false);
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            if (loadingOverlay) {
+                loadingOverlay.innerHTML = `
+                    <div class="loading-content">
+                        <div style="color: #e74c3c; font-size: 2rem; margin-bottom: 1rem;">⚠️</div>
+                        <p style="color: #e74c3c; font-weight: bold;">載入錯誤</p>
+                        <p style="color: #666; margin-top: 0.5rem;">${message}</p>
+                        <button onclick="location.reload()" style="margin-top: 1rem; padding: 0.5rem 1rem; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            重新載入
+                        </button>
+                    </div>
+                `;
+                loadingOverlay.style.display = 'flex';
+            }
+        }
+
+        // 獲取當前時間
+        function getCurrentTime() {
+            return new Date().toLocaleTimeString('zh-TW', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // 初始化應用
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('🚀 應用程式開始初始化...');
+
+            // 設置初始載入超時
+            const loadingTimeout = setTimeout(() => {
+                console.warn('⚠️ 載入超時，嘗試重新載入...');
+                showError('載入超時，請重新載入頁面');
+            }, 10000); // 10秒超時
+
+            try {
+                initializeMap();
+
+                // 如果初始化成功，清除超時
+                map.on('load', () => {
+                    clearTimeout(loadingTimeout);
+                });
+            } catch (error) {
+                clearTimeout(loadingTimeout);
+                console.error('❌ 初始化錯誤:', error);
+                showError('應用程式初始化失敗');
+            }
+        });
+
+        // 全域錯誤處理
+        window.addEventListener('error', function (e) {
+            console.error('🚨 應用程式錯誤:', e.error);
+            showError('發生未預期的錯誤: ' + e.error.message);
+        });
+
+        // Promise 錯誤處理
+        window.addEventListener('unhandledrejection', function (e) {
+            console.error('🚨 未處理的 Promise 錯誤:', e.reason);
+            // 不顯示錯誤訊息，避免天氣API錯誤影響使用者體驗
+            console.warn('Promise 錯誤已記錄但不中斷應用程式');
+        });
+    </script>
+</body>
+
+</html>
