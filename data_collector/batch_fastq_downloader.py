@@ -9,10 +9,21 @@ import os
 import sys
 import time
 import json
+import signal
 from pathlib import Path
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
+
+# 全局中斷標誌
+interrupt_flag = False
+
+def signal_handler(signum, frame):
+    """處理 Ctrl+C 中斷信號"""
+    global interrupt_flag
+    print("\n\n⚠️  收到中斷信號，正在安全停止...")
+    print("⏸️  等待當前任務完成後退出...")
+    interrupt_flag = True
 
 
 def run_sra_command_with_timer(sra_bin, command, args, timeout=3600):
@@ -83,6 +94,13 @@ def run_sra_command(sra_bin, command, args, timeout=3600):
 
 def download_fastq(run_id, sra_bin, output_dir, progress_data, base_dir):
     """下載單個FASTQ"""
+    global interrupt_flag
+    
+    # 檢查中斷標誌
+    if interrupt_flag:
+        print(f"\n⏸️  跳過 {run_id} (用戶中斷)")
+        return False
+    
     print(f"\n{'='*60}")
     print(f"📥 處理: {run_id}")
     print(f"{'='*60}")
@@ -251,6 +269,11 @@ def load_progress():
 
 def main():
     """主程序"""
+    global interrupt_flag
+    
+    # 註冊信號處理器
+    signal.signal(signal.SIGINT, signal_handler)
+    
     # 設定並行下載數量
     MAX_WORKERS = 10
 
@@ -328,6 +351,11 @@ def main():
         }
 
         for future in as_completed(future_to_run):
+            # 檢查中斷標誌
+            if interrupt_flag:
+                print("\n⏸️  停止接收新結果...")
+                break
+                
             run_id = future_to_run[future]
             try:
                 success = future.result()
@@ -413,7 +441,10 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
+        interrupt_flag = True
         print("\n\n⚠️  下載被用戶中斷")
+        print("💾 進度已保存到 download_progress.json")
+        print("🔄 下次執行將從斷點繼續")
     except Exception as e:
         print(f"\n❌ 發生錯誤: {e}")
         import traceback
